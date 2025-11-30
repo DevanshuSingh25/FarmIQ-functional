@@ -13,24 +13,91 @@ import { HourlyForecastPanel } from '@/components/weather/HourlyForecastPanel';
 import { WeeklyAdvice } from '@/components/weather/WeeklyAdvice';
 import { WeatherAlerts } from '@/components/weather/WeatherAlerts';
 import { NotificationSettings } from '@/components/weather/NotificationSettings';
-import { weatherService } from '@/services/weatherService';
-import { 
-  DailyForecast, 
-  HourlyForecast, 
-  WeeklyAdvice as WeeklyAdviceType, 
+import {
+  DailyForecast,
+  HourlyForecast,
+  WeeklyAdvice as WeeklyAdviceType,
   WeatherAlert,
   WeatherFilters,
-  NotificationSettings as NotificationSettingsType
+  NotificationSettings as NotificationSettingsType,
+  WeatherIcon
 } from '@/types/weather';
 import { useToast } from '@/hooks/use-toast';
+
+const OPENWEATHER_API_KEY = '2191c6793168af5d4899a607a940e6d9';
+
+const capitalize = (text: string) => text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+
+const mapWeatherIcon = (main?: string): WeatherIcon => {
+  const key = (main || '').toLowerCase();
+  if (key === 'clear') return 'clear';
+  if (key === 'thunderstorm' || key === 'tornado') return 'storm';
+  if (key === 'drizzle' || key === 'rain') return 'rain';
+  if (key === 'snow') return 'snow';
+  if (['mist', 'smoke', 'haze', 'dust', 'fog', 'sand', 'ash'].includes(key)) return 'fog';
+  if (key === 'squall') return 'wind';
+  if (key === 'clouds') return 'cloud';
+  return 'cloud';
+};
+
+const degToCompass = (deg?: number): string => {
+  if (deg === undefined || deg === null) return 'N';
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  return directions[Math.round(deg / 45) % 8];
+};
+
+const buildAlerts = (forecasts: DailyForecast[]): WeatherAlert[] => {
+  const alerts: WeatherAlert[] = [];
+
+  const heavyRainDays = forecasts.filter(day => day.precipChance >= 80);
+  if (heavyRainDays.length) {
+    alerts.push({
+      code: 'heavy_rain',
+      from: heavyRainDays[0].date,
+      to: heavyRainDays[heavyRainDays.length - 1].date,
+      severity: 'warning',
+      message: 'Heavy rainfall expected. Prepare drainage and delay spraying operations.'
+    });
+  }
+
+  const heatDays = forecasts.filter(day => day.tempMaxC >= 38);
+  if (heatDays.length) {
+    alerts.push({
+      code: 'heat_wave',
+      from: heatDays[0].date,
+      to: heatDays[heatDays.length - 1].date,
+      severity: 'danger',
+      message: 'High temperature spell ahead. Increase irrigation and provide shade.'
+    });
+  }
+
+  const windyDays = forecasts.filter(day => day.windKph >= 40);
+  if (windyDays.length) {
+    alerts.push({
+      code: 'high_wind',
+      from: windyDays[0].date,
+      to: windyDays[windyDays.length - 1].date,
+      severity: 'warning',
+      message: 'Gusty winds forecasted. Secure light materials and avoid foliar sprays.'
+    });
+  }
+
+  return alerts;
+};
+
+type FetchWeatherOptions = {
+  city?: string;
+  coords?: { lat: number; lon: number };
+  label?: string;
+};
 
 const Weather = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [language, setLanguage] = useState<'English' | 'Hindi' | 'Punjabi'>('English');
-  
+
   const [filters, setFilters] = useState<WeatherFilters>({
     location: null,
     units: {
@@ -38,7 +105,7 @@ const Weather = () => {
       wind: 'kph'
     }
   });
-  
+
   const [dailyForecast, setDailyForecast] = useState<DailyForecast[]>([]);
   const [hourlyForecast, setHourlyForecast] = useState<HourlyForecast[]>([]);
   const [weeklyAdvice, setWeeklyAdvice] = useState<WeeklyAdviceType | null>(null);
@@ -48,6 +115,7 @@ const Weather = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [showHourlyPanel, setShowHourlyPanel] = useState(false);
+  const [selectedCity, setSelectedCity] = useState('');
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettingsType>({
     dailySummary: false,
     severeWeather: true,
@@ -64,68 +132,96 @@ const Weather = () => {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // Load cached data on mount
-  useEffect(() => {
+  const fetchWeatherData = async (options: FetchWeatherOptions = {}) => {
+    const baseCity = options.city || selectedCity || filters.location?.district || filters.location?.name?.split(',')[0]?.trim();
+    if (!baseCity && !options.coords) {
+      toast({
+        title: "Select a city",
+        description: "Please choose a city before fetching weather data.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!isOnline) {
-      const cached = weatherService.getCachedForecast();
-      if (cached && weatherService.isCacheValid(cached)) {
-        setDailyForecast(cached.daily || []);
-        setHourlyForecast(cached.hourly || []);
-        setWeeklyAdvice(cached.advice);
-        setWeatherAlerts(cached.alerts || []);
-        setLastUpdated(cached.lastUpdated);
-      }
+      toast({
+        title: "Offline",
+        description: "Connect to the internet to fetch the latest weather.",
+        variant: "destructive"
+      });
+      return;
     }
-  }, [isOnline]);
 
-  // Fetch weather data when location changes
-  useEffect(() => {
-    if (filters.location && isOnline) {
-      fetchWeatherData();
-    }
-  }, [filters.location, isOnline]);
-
-  const fetchWeatherData = async () => {
-    if (!filters.location) return;
-    
     setLoading(true);
     try {
-      const [forecast, advice, alerts] = await Promise.all([
-        weatherService.getWeatherForecast(filters.location),
-        weatherService.getWeatherAdvice(filters.location),
-        weatherService.getWeatherAlerts(filters.location)
-      ]);
-      
-      setDailyForecast(forecast.daily);
-      setHourlyForecast(forecast.hourly);
-      setWeeklyAdvice(advice);
-      setWeatherAlerts(alerts);
-      setLastUpdated(forecast.lastUpdated);
-      
-      // Cache the data
-      weatherService.setCachedForecast({
-        daily: forecast.daily,
-        hourly: forecast.hourly,
-        advice,
-        alerts,
-        lastUpdated: forecast.lastUpdated
+      let endpoint = '';
+      if (options.coords) {
+        endpoint = `https://api.openweathermap.org/data/2.5/forecast?lat=${options.coords.lat}&lon=${options.coords.lon}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+      } else {
+        endpoint = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(baseCity)},IN&appid=${OPENWEATHER_API_KEY}&units=metric`;
+      }
+      const response = await fetch(endpoint);
+      const data = await response.json();
+
+      if (data.cod !== '200') {
+        throw new Error('Unable to fetch weather data for this city.');
+      }
+
+      const dailyMap = new Map<string, any>();
+      data.list.forEach((item: any) => {
+        const dateKey = item.dt_txt.split(' ')[0];
+        if (!dailyMap.has(dateKey)) {
+          dailyMap.set(dateKey, item);
+        }
       });
-      
+
+      const dailyData: DailyForecast[] = Array.from(dailyMap.entries())
+        .slice(0, 5)
+        .map(([date, item]) => ({
+          date,
+          summary: capitalize(item.weather?.[0]?.description || 'Forecast'),
+          icon: mapWeatherIcon(item.weather?.[0]?.main),
+          tempMinC: Math.round(item.main?.temp_min ?? 0),
+          tempMaxC: Math.round(item.main?.temp_max ?? 0),
+          precipChance: Math.round((item.pop ?? 0) * 100),
+          windKph: Math.round((item.wind?.speed ?? 0) * 3.6),
+          windDir: degToCompass(item.wind?.deg),
+          humidityPct: Math.round(item.main?.humidity ?? 0),
+          confidence: 'High',
+          alerts: []
+        }));
+
+      const hourlyData: HourlyForecast[] = data.list.slice(0, 24).map((item: any) => ({
+        dateTime: item.dt_txt,
+        tempC: Math.round(item.main?.temp ?? 0),
+        precipChance: Math.round((item.pop ?? 0) * 100),
+        windKph: Math.round((item.wind?.speed ?? 0) * 3.6)
+      }));
+
+      setDailyForecast(dailyData);
+      setHourlyForecast(hourlyData);
+      setWeatherAlerts(buildAlerts(dailyData));
+      setWeeklyAdvice(null);
+      setLastUpdated(new Date().toISOString());
+      const resolvedLabel = options.label || options.city || baseCity;
+      if (resolvedLabel) {
+        setSelectedCity(resolvedLabel);
+      }
     } catch (error) {
       toast({
         title: "Failed to fetch weather data",
-        description: "Please try again or check your connection",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Please try again later.",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -149,23 +245,74 @@ const Weather = () => {
     });
   };
 
-  const isEmpty = !filters.location;
+  const handleCitySelect = (city: string) => {
+    const location = {
+      lat: 0,
+      lon: 0,
+      name: `${city}, Punjab`,
+      state: 'Punjab',
+      district: city
+    };
+
+    setFilters(prev => ({
+      ...prev,
+      location
+    }));
+
+    fetchWeatherData({ city, label: city });
+  };
+
+  const handleUseCurrentLocation = async ({ lat, lon }: { lat: number; lon: number }) => {
+    try {
+      let label = 'Current Location';
+      const reverseUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${OPENWEATHER_API_KEY}`;
+      const reverseResponse = await fetch(reverseUrl);
+      if (reverseResponse.ok) {
+        const reverseData = await reverseResponse.json();
+        if (reverseData?.[0]?.name) {
+          label = reverseData[0].name;
+        }
+      }
+
+      setFilters(prev => ({
+        ...prev,
+        location: {
+          lat,
+          lon,
+          name: `${label}, Punjab`,
+          state: 'Punjab',
+          district: label
+        }
+      }));
+
+      await fetchWeatherData({ coords: { lat, lon }, label });
+    } catch (error) {
+      toast({
+        title: "Unable to use current location",
+        description: error instanceof Error ? error.message : "Please try again later.",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
+  const isEmpty = !filters.location || dailyForecast.length === 0;
   const isOfflineWithNoData = !isOnline && dailyForecast.length === 0;
 
   return (
     <div className="min-h-screen bg-background">
-      <FarmIQNavbar 
+      <FarmIQNavbar
         theme={theme}
         language={language}
         onThemeToggle={toggleTheme}
         onLanguageChange={setLanguage}
       />
-      
+
       {/* Header */}
       <header className="bg-card border-b shadow-soft group relative">
         <div className="absolute top-4 right-4 z-10">
-          <SectionSpeaker 
-            getText={() => "Weather and Crop Advice page. Get personalized weather insights and agricultural recommendations based on your location. View 7-day forecasts, hourly predictions, and farming advice."}
+          <SectionSpeaker
+            getText={() => "Weather and Crop Advice page. Get personalized weather insights and agricultural recommendations based on your location. View 5-day forecasts, hourly predictions, and farming advice."}
             sectionId="weather-page-header"
             ariaLabel="Read weather page information"
             alwaysVisible
@@ -182,7 +329,7 @@ const Weather = () => {
                 <span className="text-sm text-muted-foreground">
                   Home / Weather
                 </span>
-                <Badge 
+                <Badge
                   variant={isOnline ? "secondary" : "destructive"}
                   className="text-xs"
                 >
@@ -210,8 +357,10 @@ const Weather = () => {
           filters={filters}
           onFiltersChange={setFilters}
           lastUpdated={lastUpdated}
-          onRefresh={fetchWeatherData}
+          onRefresh={() => fetchWeatherData()}
           isLoading={loading}
+          onCitySelect={handleCitySelect}
+          onUseCurrentLocation={handleUseCurrentLocation}
         />
 
         {/* Offline Banner */}
@@ -219,7 +368,7 @@ const Weather = () => {
           <Alert className="border-warning bg-warning/5">
             <WifiOff className="h-4 w-4" />
             <AlertDescription>
-              You're offline. Showing last saved forecast 
+              You're offline. Showing last saved forecast
               {lastUpdated && ` (updated ${new Date(lastUpdated).toLocaleString()})`}.
             </AlertDescription>
           </Alert>
@@ -293,17 +442,17 @@ const Weather = () => {
         {/* Weather Content */}
         {!isEmpty && !loading && dailyForecast.length > 0 && (
           <>
-            {/* 7-Day Forecast Grid */}
+            {/* 5-Day Forecast Grid */}
             <div className="space-y-4 group relative">
               <div className="absolute top-2 right-2 z-10">
-                <SectionSpeaker 
-                  getText={() => "7-Day weather forecast showing daily conditions, temperatures, precipitation, and farming advice for the selected location."}
+                <SectionSpeaker
+                  getText={() => "5-Day weather forecast showing daily conditions, temperatures, precipitation, and farming advice for the selected location."}
                   sectionId="weather-forecast-grid"
                   ariaLabel="Read weather forecast information"
                   alwaysVisible
                 />
               </div>
-              <h2 className="text-xl font-semibold text-foreground">7-Day Forecast</h2>
+              <h2 className="text-xl font-semibold text-foreground">5-Day Forecast</h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {dailyForecast.map((forecast) => (
                   <WeatherCard
