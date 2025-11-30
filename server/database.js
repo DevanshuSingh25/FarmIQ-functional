@@ -178,6 +178,193 @@ const dbHelpers = {
         }
       );
     });
+  },
+
+  // ========== NGO SCHEMES HELPERS ==========
+
+  // Get all NGO schemes
+  getNgoSchemes: () => {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM ngo_schemes ORDER BY created_at DESC`,
+        [],
+        (err, rows) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows || []);
+        }
+      );
+    });
+  },
+
+  // Get NGO scheme by ID
+  getNgoSchemeById: (id) => {
+    return new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM ngo_schemes WHERE id = ?`,
+        [id],
+        (err, row) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(row);
+        }
+      );
+    });
+  },
+
+  // Create NGO scheme
+  createNgoScheme: (data) => {
+    return new Promise((resolve, reject) => {
+      const { name, ministry, deadline, location, contact_number, no_of_docs_required, status, benefit_text, eligibility_text } = data;
+      db.run(
+        `INSERT INTO ngo_schemes (name, ministry, deadline, location, contact_number, no_of_docs_required, status, benefit_text, eligibility_text)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [name, ministry || '', deadline || '', location || '', contact_number || '', no_of_docs_required || 0, status || 'active', benefit_text || '', eligibility_text || ''],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ id: this.lastID });
+        }
+      );
+    });
+  },
+
+  // Update NGO scheme
+  updateNgoScheme: (id, data) => {
+    return new Promise((resolve, reject) => {
+      const { name, ministry, deadline, location, contact_number, no_of_docs_required, status, benefit_text, eligibility_text } = data;
+      db.run(
+        `UPDATE ngo_schemes 
+         SET name = ?, ministry = ?, deadline = ?, location = ?, contact_number = ?, 
+             no_of_docs_required = ?, status = ?, benefit_text = ?, eligibility_text = ?,
+             updated_at = datetime('now')
+         WHERE id = ?`,
+        [name, ministry, deadline, location, contact_number, no_of_docs_required, status, benefit_text, eligibility_text, id],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ changes: this.changes });
+        }
+      );
+    });
+  },
+
+  // Delete NGO scheme
+  deleteNgoScheme: (id) => {
+    return new Promise((resolve, reject) => {
+      db.run(
+        `DELETE FROM ngo_schemes WHERE id = ?`,
+        [id],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ changes: this.changes });
+        }
+      );
+    });
+  },
+
+  // ========== SOIL LAB HELPERS ==========
+
+  // Get all soil labs
+  getSoilLabs: () => {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM soil_lab ORDER BY created_at DESC`,
+        [],
+        (err, rows) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows || []);
+        }
+      );
+    });
+  },
+
+  // Get soil lab by ID
+  getSoilLabById: (id) => {
+    return new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM soil_lab WHERE id = ?`,
+        [id],
+        (err, row) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(row);
+        }
+      );
+    });
+  },
+
+  // Create soil lab
+  createSoilLab: (data) => {
+    return new Promise((resolve, reject) => {
+      const { name, location, contact_number, price, rating, tag } = data;
+      db.run(
+        `INSERT INTO soil_lab (name, location, contact_number, price, rating, tag)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [name, location || '', contact_number || '', price || 0, rating || 0, tag || ''],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ id: this.lastID });
+        }
+      );
+    });
+  },
+
+  // Update soil lab
+  updateSoilLab: (id, data) => {
+    return new Promise((resolve, reject) => {
+      const { name, location, contact_number, price, rating, tag } = data;
+      db.run(
+        `UPDATE soil_lab 
+         SET name = ?, location = ?, contact_number = ?, price = ?, rating = ?, tag = ?,
+             updated_at = datetime('now')
+         WHERE id = ?`,
+        [name, location, contact_number, price, rating, tag, id],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ changes: this.changes });
+        }
+      );
+    });
+  },
+
+  // Delete soil lab
+  deleteSoilLab: (id) => {
+    return new Promise((resolve, reject) => {
+      db.run(
+        `DELETE FROM soil_lab WHERE id = ?`,
+        [id],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ changes: this.changes });
+        }
+      );
+    });
   }
 };
 

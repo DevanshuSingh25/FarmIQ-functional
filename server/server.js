@@ -281,6 +281,136 @@ app.get('/api/admin/dashboard', requireAuth, requireRole(['admin']), (req, res) 
   res.json({ message: 'Admin dashboard data' });
 });
 
+// ========== NGO SCHEMES ROUTES ==========
+
+// Get all NGO schemes (all authenticated users can read)
+app.get('/api/ngo-schemes', requireAuth, async (req, res) => {
+  try {
+    const schemes = await dbHelpers.getNgoSchemes();
+    res.json(schemes);
+  } catch (error) {
+    console.error('Get NGO schemes error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get NGO scheme by ID (all authenticated users can read)
+app.get('/api/ngo-schemes/:id', requireAuth, async (req, res) => {
+  try {
+    const schemeId = parseInt(req.params.id);
+    const scheme = await dbHelpers.getNgoSchemeById(schemeId);
+
+    if (scheme) {
+      res.json(scheme);
+    } else {
+      res.status(404).json({ message: 'NGO scheme not found' });
+    }
+  } catch (error) {
+    console.error('Get NGO scheme error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Create NGO scheme (admin only)
+app.post('/api/ngo-schemes', requireAuth, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await dbHelpers.createNgoScheme(req.body);
+    res.status(201).json({ id: result.id, message: 'NGO scheme created successfully' });
+  } catch (error) {
+    console.error('Create NGO scheme error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update NGO scheme (admin only)
+app.put('/api/ngo-schemes/:id', requireAuth, requireRole(['admin']), async (req, res) => {
+  try {
+    const schemeId = parseInt(req.params.id);
+    await dbHelpers.updateNgoScheme(schemeId, req.body);
+    res.json({ message: 'NGO scheme updated successfully' });
+  } catch (error) {
+    console.error('Update NGO scheme error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete NGO scheme (admin only)
+app.delete('/api/ngo-schemes/:id', requireAuth, requireRole(['admin']), async (req, res) => {
+  try {
+    const schemeId = parseInt(req.params.id);
+    await dbHelpers.deleteNgoScheme(schemeId);
+    res.json({ message: 'NGO scheme deleted successfully' });
+  } catch (error) {
+    console.error('Delete NGO scheme error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// ========== SOIL LAB ROUTES ==========
+
+// Get all soil labs (all authenticated users can read)
+app.get('/api/soil-labs', requireAuth, async (req, res) => {
+  try {
+    const labs = await dbHelpers.getSoilLabs();
+    res.json(labs);
+  } catch (error) {
+    console.error('Get soil labs error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get soil lab by ID (all authenticated users can read)
+app.get('/api/soil-labs/:id', requireAuth, async (req, res) => {
+  try {
+    const labId = parseInt(req.params.id);
+    const lab = await dbHelpers.getSoilLabById(labId);
+
+    if (lab) {
+      res.json(lab);
+    } else {
+      res.status(404).json({ message: 'Soil lab not found' });
+    }
+  } catch (error) {
+    console.error('Get soil lab error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Create soil lab (admin only)
+app.post('/api/soil-labs', requireAuth, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await dbHelpers.createSoilLab(req.body);
+    res.status(201).json({ id: result.id, message: 'Soil lab created successfully' });
+  } catch (error) {
+    console.error('Create soil lab error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update soil lab (admin only)
+app.put('/api/soil-labs/:id', requireAuth, requireRole(['admin']), async (req, res) => {
+  try {
+    const labId = parseInt(req.params.id);
+    await dbHelpers.updateSoilLab(labId, req.body);
+    res.json({ message: 'Soil lab updated successfully' });
+  } catch (error) {
+    console.error('Update soil lab error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete soil lab (admin only)
+app.delete('/api/soil-labs/:id', requireAuth, requireRole(['admin']), async (req, res) => {
+  try {
+    const labId = parseInt(req.params.id);
+    await dbHelpers.deleteSoilLab(labId);
+    res.json({ message: 'Soil lab deleted successfully' });
+  } catch (error) {
+    console.error('Delete soil lab error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // IoT Sensor API endpoints
 // Mock technician data
 const technicians = [
