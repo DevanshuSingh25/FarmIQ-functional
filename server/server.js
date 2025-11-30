@@ -2,7 +2,7 @@ const express = require('express');
 const session = require('express-session');
 const cors = require('cors');
 const path = require('path');
-const { initDatabase } = require('./database');
+const { initDatabase, dbHelpers } = require('./database');
 const authHelpers = require('./auth');
 
 const app = express();
@@ -407,6 +407,124 @@ app.delete('/api/soil-labs/:id', requireAuth, requireRole(['admin']), async (req
     res.json({ message: 'Soil lab deleted successfully' });
   } catch (error) {
     console.error('Delete soil lab error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// ========== CROP HISTORY ROUTES ==========
+
+// Get crops (farmers get own, admins get all, vendors denied)
+app.get('/api/crops', requireAuth, async (req, res) => {
+  try {
+    const userRole = req.session.role;
+    const userId = req.session.userId;
+
+    // Vendors not allowed to access crop history
+    if (userRole === 'vendor') {
+      return res.status(403).json({ message: 'Vendors cannot access crop history' });
+    }
+
+    let crops;
+    if (userRole === 'admin') {
+      // Admins see all crops
+      crops = await dbHelpers.getAllCrops();
+    } else {
+      // Farmers see only their crops
+      crops = await dbHelpers.getCropsByUserId(userId);
+    }
+
+    res.json(crops);
+  } catch (error) {
+    console.error('Get crops error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Create crop (farmers and admins only, user_id from session)
+app.post('/api/crops', requireAuth, async (req, res) => {
+  try {
+    const userRole = req.session.role;
+    const userId = req.session.userId;
+
+    // Only farmers and admins can create crops
+    if (userRole === 'vendor') {
+      return res.status(403).json({ message: 'Vendors cannot create crop records' });
+    }
+
+    // Validate required fields
+    const { crop_name } = req.body;
+    if (!crop_name) {
+      return res.status(400).json({ message: 'Crop name is required' });
+    }
+
+    // SECURITY: user_id from session, NEVER from client
+    // Even if client sends user_id, it's ignored
+    const result = await dbHelpers.createCrop(userId, req.body);
+    res.status(201).json({ id: result.id, message: 'Crop record created successfully' });
+  } catch (error) {
+    console.error('Create crop error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update crop (owner or admin only)
+app.put('/api/crops/:id', requireAuth, async (req, res) => {
+  try {
+    const cropId = parseInt(req.params.id);
+    const userRole = req.session.role;
+    const userId = req.session.userId;
+
+    // Vendors not allowed
+    if (userRole === 'vendor') {
+      return res.status(403).json({ message: 'Vendors cannot modify crop records' });
+    }
+
+    // Check ownership (unless admin)
+    const crop = await dbHelpers.getCropById(cropId);
+    if (!crop) {
+      return res.status(404).json({ message: 'Crop record not found' });
+    }
+
+    // Only admin or owner can update
+    if (userRole !== 'admin' && crop.user_id !== userId) {
+      return res.status(403).json({ message: 'You can only update your own crop records' });
+    }
+
+    await dbHelpers.updateCrop(cropId, req.body);
+    res.json({ message: 'Crop record updated successfully' });
+  } catch (error) {
+    console.error('Update crop error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete crop (owner or admin only)
+app.delete('/api/crops/:id', requireAuth, async (req, res) => {
+  try {
+    const cropId = parseInt(req.params.id);
+    const userRole = req.session.role;
+    const userId = req.session.userId;
+
+    // Vendors not allowed
+    if (userRole === 'vendor') {
+      return res.status(403).json({ message: 'Vendors cannot delete crop records' });
+    }
+
+    // Check ownership (unless admin)
+    const crop = await dbHelpers.getCropById(cropId);
+    if (!crop) {
+      return res.status(404).json({ message: 'Crop record not found' });
+    }
+
+    // Only admin or owner can delete
+    if (userRole !== 'admin' && crop.user_id !== userId) {
+      return res.status(403).json({ message: 'You can only delete your own crop records' });
+    }
+
+    await dbHelpers.deleteCrop(cropId);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete crop error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });

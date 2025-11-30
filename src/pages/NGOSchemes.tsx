@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SectionSpeaker } from "@/components/ui/section-speaker";
 import { FarmIQNavbar } from "@/components/farmiq/FarmIQNavbar";
-import { Search, Building2, Calendar, MapPin, ExternalLink, Phone, FileText, Home } from "lucide-react";
+import { Search, Building2, Calendar, MapPin, ExternalLink, Phone, FileText, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getNgoSchemes, type NgoScheme as DBNgoScheme } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface NGOScheme {
   id: string;
@@ -24,90 +26,72 @@ interface NGOScheme {
   status: 'Active' | 'Upcoming' | 'Closed';
 }
 
-const mockSchemes: NGOScheme[] = [
-  {
-    id: '1',
-    title: 'Krishi Sinchai Yojana',
-    organization: 'Ministry of Agriculture',
-    description: 'Comprehensive scheme for irrigation development and water conservation in agriculture',
-    eligibility: ['Small and marginal farmers', 'Women farmers', 'SC/ST farmers'],
-    benefits: ['50% subsidy on drip irrigation', 'Free water testing', 'Technical support'],
-    applicationDeadline: '2025-12-31',
-    location: 'Pan India',
-    category: 'Irrigation',
-    contactPhone: '1800-180-1551',
-    documentsRequired: ['Aadhaar Card', 'Land Records', 'Bank Account Details'],
-    status: 'Active'
-  },
-  {
-    id: '2',
-    title: 'Organic Farming Promotion',
-    organization: 'NABARD',
-    description: 'Support for transition to organic farming practices and certification',
-    eligibility: ['Farmers with minimum 2 acres', 'Farmer Producer Organizations'],
-    benefits: ['₹50,000 per hectare assistance', 'Free soil testing', 'Marketing support'],
-    applicationDeadline: '2025-10-15',
-    location: 'Maharashtra, Karnataka',
-    category: 'Organic Farming',
-    contactPhone: '1800-200-2222',
-    documentsRequired: ['Land Ownership Certificate', 'Previous Crop Records', 'Group Certificate'],
-    status: 'Active'
-  },
-  {
-    id: '3',
-    title: 'Climate Resilient Agriculture',
-    organization: 'World Bank - India',
-    description: 'Building resilience against climate change through sustainable farming practices',
-    eligibility: ['Farmers in drought-prone areas', 'Women Self Help Groups'],
-    benefits: ['Climate-smart seeds', 'Weather insurance', 'Training programs'],
-    applicationDeadline: '2025-11-30',
-    location: 'Rajasthan, Gujarat, Haryana',
-    category: 'Climate Adaptation',
-    contactPhone: '1800-300-3333',
-    documentsRequired: ['Identity Proof', 'Residence Proof', 'Farming Certificate'],
-    status: 'Active'
-  },
-  {
-    id: '4',
-    title: 'Farmer Producer Company Support',
-    organization: 'Small Farmers Agribusiness Consortium',
-    description: 'Financial and technical support for forming and strengthening Farmer Producer Companies',
-    eligibility: ['Groups of 500+ farmers', 'Registered FPCs'],
-    benefits: ['₹15 lakh equity grant', 'Business development support', 'Market linkages'],
-    applicationDeadline: '2025-09-30',
-    location: 'Uttar Pradesh, Bihar, Odisha',
-    category: 'Institutional Development',
-    contactPhone: '1800-400-4444',
-    documentsRequired: ['Group Registration', 'Member List', 'Business Plan'],
-    status: 'Upcoming'
-  }
-];
+// Map DB schema to UI schema
+function mapDBSchemeToUI(dbScheme: DBNgoScheme): NGOScheme {
+  return {
+    id: dbScheme.id.toString(),
+    title: dbScheme.name || 'Untitled Scheme',
+    organization: dbScheme.ministry || 'Government',
+    description: dbScheme.benefit_text || 'No description available',
+    eligibility: dbScheme.eligibility_text ? [dbScheme.eligibility_text] : [],
+    benefits: dbScheme.benefit_text ? [dbScheme.benefit_text] : [],
+    applicationDeadline: dbScheme.deadline || new Date().toISOString().split('T')[0],
+    location: dbScheme.location || 'India',
+    category: 'Government Scheme',
+    contactPhone: dbScheme.contact_number || 'Not available',
+    documentsRequired: Array(dbScheme.no_of_docs_required || 0).fill('Document required'),
+    status: (dbScheme.status === 'active' ? 'Active' : dbScheme.status === 'upcoming' ? 'Upcoming' : 'Closed') as 'Active' | 'Upcoming' | 'Closed'
+  };
+}
 
 const NGOSchemes = () => {
   const navigate = useNavigate();
-  const [schemes] = useState<NGOScheme[]>(mockSchemes);
+  const { toast } = useToast();
+  const [schemes, setSchemes] = useState<NGOScheme[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [language, setLanguage] = useState<'English' | 'Hindi' | 'Punjabi'>('English');
+
+  useEffect(() => {
+    fetchSchemes();
+  }, []);
+
+  const fetchSchemes = async () => {
+    try {
+      setLoading(true);
+      const dbSchemes = await getNgoSchemes();
+      const uiSchemes = dbSchemes.map(mapDBSchemeToUI);
+      setSchemes(uiSchemes);
+    } catch (error) {
+      console.error('Error fetching NGO schemes:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load NGO schemes',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
     document.documentElement.classList.toggle('dark');
   };
 
-  const categories = ['all', 'Irrigation', 'Organic Farming', 'Climate Adaptation', 'Institutional Development'];
+  const categories = ['all', 'Government Scheme'];
   const statuses = ['all', 'Active', 'Upcoming', 'Closed'];
 
   const filteredSchemes = schemes.filter(scheme => {
     const matchesSearch = scheme.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         scheme.organization.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         scheme.description.toLowerCase().includes(searchTerm.toLowerCase());
+      scheme.organization.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      scheme.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || scheme.category === selectedCategory;
     const matchesStatus = selectedStatus === 'all' || scheme.status === selectedStatus;
-    
+
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
@@ -120,15 +104,23 @@ const NGOSchemes = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <FarmIQNavbar 
+      <FarmIQNavbar
         theme={theme}
         language={language}
         onThemeToggle={toggleTheme}
         onLanguageChange={setLanguage}
       />
-      
+
       {/* Header */}
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-6 pt-24">
@@ -159,7 +151,7 @@ const NGOSchemes = () => {
                 />
               </div>
             </div>
-            
+
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger>
                 <SelectValue placeholder="Category" />
@@ -172,7 +164,7 @@ const NGOSchemes = () => {
                 ))}
               </SelectContent>
             </Select>
-            
+
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
               <SelectTrigger>
                 <SelectValue placeholder="Status" />
@@ -191,7 +183,7 @@ const NGOSchemes = () => {
         {/* Results */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-muted-foreground">
-            Found {filteredSchemes.length} schemes  
+            Found {filteredSchemes.length} schemes
           </p>
         </div>
 
@@ -202,14 +194,14 @@ const NGOSchemes = () => {
               Organization: ${scheme.organization}. 
               Location: ${scheme.location}. 
               Deadline: ${new Date(scheme.applicationDeadline).toLocaleDateString()}`;
-            
+
             return (
               <Card key={scheme.id} className="overflow-hidden group">
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <CardTitle 
+                        <CardTitle
                           className="text-xl"
                           data-tts="title"
                         >
@@ -218,7 +210,7 @@ const NGOSchemes = () => {
                         <Badge variant={getStatusColor(scheme.status) as any}>
                           {scheme.status}
                         </Badge>
-                        <SectionSpeaker 
+                        <SectionSpeaker
                           getText={getText}
                           sectionId={`ngo-scheme-${scheme.id}`}
                           ariaLabel={`Read ${scheme.title} scheme details`}
@@ -233,10 +225,10 @@ const NGOSchemes = () => {
                     <Badge variant="outline">{scheme.category}</Badge>
                   </div>
                 </CardHeader>
-                
+
                 <CardContent className="space-y-4">
                   <div>
-                    <CardDescription 
+                    <CardDescription
                       className="mb-2"
                       data-tts="desc"
                     >
@@ -257,7 +249,7 @@ const NGOSchemes = () => {
                         ))}
                       </ul>
                     </div>
-                    
+
                     <div>
                       <h4 className="font-semibold mb-2">
                         Benefits
@@ -277,17 +269,17 @@ const NGOSchemes = () => {
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span>Deadline: {new Date(scheme.applicationDeadline).toLocaleDateString()}</span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 text-sm">
                       <MapPin className="h-4 w-4 text-muted-foreground" />
                       <span>{scheme.location}</span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 text-sm">
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       <span>{scheme.contactPhone}</span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 text-sm">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <span>{scheme.documentsRequired.length} docs required</span>

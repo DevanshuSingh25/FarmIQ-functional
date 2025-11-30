@@ -1,4 +1,4 @@
-// API functions for NGO schemes and soil labs
+// API functions for NGO schemes, soil labs, and crop history
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
     (import.meta.env.PROD
         ? 'https://farm-backend-dqsw.onrender.com/api'
@@ -27,6 +27,17 @@ export interface SoilLab {
     price?: number;
     rating?: number;
     tag?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CropHistory {
+    id: number;
+    user_id: number;
+    crop_name: string;
+    crop_price: number;
+    selling_price: number;
+    crop_produced_kg: number;
     created_at: string;
     updated_at: string;
 }
@@ -108,6 +119,32 @@ export const updateSoilLab = (id: number, data: Partial<SoilLab>): Promise<{ mes
 
 export const deleteSoilLab = (id: number): Promise<{ message: string }> => {
     return makeRequest(`/soil-labs/${id}`, {
+        method: 'DELETE',
+    });
+};
+
+// ========== CROP HISTORY API ==========
+
+export const getCrops = (): Promise<CropHistory[]> => {
+    return makeRequest<CropHistory[]>('/crops');
+};
+
+export const createCrop = (data: Omit<CropHistory, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<{ id: number; message: string }> => {
+    return makeRequest('/crops', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+};
+
+export const updateCrop = (id: number, data: Partial<CropHistory>): Promise<{ message: string }> => {
+    return makeRequest(`/crops/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    });
+};
+
+export const deleteCrop = (id: number): Promise<{ message: string }> => {
+    return makeRequest(`/crops/${id}`, {
         method: 'DELETE',
     });
 };

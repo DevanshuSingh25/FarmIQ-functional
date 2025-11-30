@@ -365,8 +365,119 @@ const dbHelpers = {
         }
       );
     });
+  },
+
+  // ========== CROP HISTORY HELPERS ==========
+
+  // Get crops by user ID (for farmers)
+  getCropsByUserId: (userId) => {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM crop_history WHERE user_id = ? ORDER BY created_at DESC`,
+        [userId],
+        (err, rows) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows || []);
+        }
+      );
+    });
+  },
+
+  // Get all crops (for admins)
+  getAllCrops: () => {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM crop_history ORDER BY created_at DESC`,
+        [],
+        (err, rows) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows || []);
+        }
+      );
+    });
+  },
+
+  // Get crop by ID
+  getCropById: (id) => {
+    return new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM crop_history WHERE id = ?`,
+        [id],
+        (err, row) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(row);
+        }
+      );
+    });
+  },
+
+  // Create crop (user_id from server, never from client)
+  createCrop: (userId, data) => {
+    return new Promise((resolve, reject) => {
+      const { crop_name, crop_price, selling_price, crop_produced_kg } = data;
+      db.run(
+        `INSERT INTO crop_history (user_id, crop_name, crop_price, selling_price, crop_produced_kg)
+         VALUES (?, ?, ?, ?, ?)`,
+        [userId, crop_name, crop_price || 0, selling_price || 0, crop_produced_kg || 0],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ id: this.lastID });
+        }
+      );
+    });
+  },
+
+  // Update crop
+  updateCrop: (id, data) => {
+    return new Promise((resolve, reject) => {
+      const { crop_name, crop_price, selling_price, crop_produced_kg } = data;
+      db.run(
+        `UPDATE crop_history 
+         SET crop_name = ?, crop_price = ?, selling_price = ?, crop_produced_kg = ?,
+             updated_at = datetime('now')
+         WHERE id = ?`,
+        [crop_name, crop_price, selling_price, crop_produced_kg, id],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ changes: this.changes });
+        }
+      );
+    });
+  },
+
+  // Delete crop
+  deleteCrop: (id) => {
+    return new Promise((resolve, reject) => {
+      db.run(
+        `DELETE FROM crop_history WHERE id = ?`,
+        [id],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ changes: this.changes });
+        }
+      );
+    });
   }
 };
+
 
 module.exports = {
   db,
