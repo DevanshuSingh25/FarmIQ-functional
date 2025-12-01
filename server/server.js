@@ -1,7 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const cors = require('cors');
 const path = require('path');
+const axios = require('axios');
 const { initDatabase, dbHelpers } = require('./database');
 const authHelpers = require('./auth');
 
@@ -732,6 +734,177 @@ app.post('/api/iot/mark-installed', (req, res) => {
   } catch (error) {
     console.error('Error marking IoT as installed:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ========== MARKET PRICES API PROXY ==========
+
+// In-memory cache for market prices
+const MARKET_CACHE = new Map();
+const MARKET_CACHE_TTL_MS = (parseInt(process.env.DATA_GOV_API_CACHE_TTL_SEC) || 300) * 1000;
+
+function getMarketCacheKey(query) {
+  return `${query.state || ''}|${query.district || ''}|${query.commodity || ''}|${query.offset || 0}|${query.limit || 50}`;
+}
+
+// GET /api/market-prices - Proxy to data.gov.in API
+app.get('/api/market-prices', async (req, res) => {
+  try {
+    const { state, district, commodity, offset = '0', limit = '50' } = req.query;
+
+    // Validate and parse parameters
+    const parsedOffset = Math.max(0, parseInt(offset) || 0);
+    const maxLimit = parseInt(process.env.DATA_GOV_API_MAX_LIMIT) || 1000;
+    const parsedLimit = Math.min(Math.max(1, parseInt(limit) || 50), maxLimit);
+
+    // Create cache key
+    const cacheKey = getMarketCacheKey({ state, district, commodity, offset: parsedOffset, limit: parsedLimit });
+
+    // Check cache
+    const cached = MARKET_CACHE.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < MARKET_CACHE_TTL_MS) {
+      console.log(`market-proxy: CACHE HIT for key=${cacheKey}`);
+      res.set('X-Cache', 'HIT');
+      return res.json(cached.data);
+    }
+
+    // Build upstream URL
+    const params = new URLSearchParams();
+    params.append('api-key', process.env.DATA_GOV_API_KEY);
+    params.append('format', 'json');
+    params.append('offset', String(parsedOffset));
+    params.append('limit', String(parsedLimit));
+
+    // Only add filters if they are NOT "All" values
+    if (state && state !== 'all' && state !== 'All States' && state !== 'All State') {
+      params.append('filters[state]', state);
+    }
+    if (district && district !== 'all' && district !== 'All Districts') {
+      params.append('filters[district]', district);
+    }
+    if (commodity && commodity !== 'all' && commodity !== 'All Crops' && commodity !== 'All commodities' && commodity !== 'All Commodity') {
+      params.append('filters[commodity]', commodity);
+    }
+
+    const upstreamUrl = `https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?${params.toString()}`;
+
+    // Log request (with redacted API key)
+    const logUrl = upstreamUrl.replace(process.env.DATA_GOV_API_KEY, '[REDACTED]');
+    console.log(`market-proxy: Fetching upstream url=${logUrl}`);
+
+    const startTime = Date.now();
+
+    // Make upstream request
+    const timeout = parseInt(process.env.DATA_GOV_API_TIMEOUT_MS) || 15000;
+    const upstreamResponse = await axios.get(upstreamUrl, {
+      timeout,
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    const elapsed = Date.now() - startTime;
+    console.log(`market-proxy: upstream ${upstreamResponse.status} in ${elapsed}ms`);
+
+    // Parse and normalize response
+    const rawData = upstreamResponse.data;
+    let records = [];
+
+    // data.gov.in returns data in records array
+    if (rawData && Array.isArray(rawData.records)) {
+      records = rawData.records;
+    } else if (Array.isArray(rawData)) {
+      records = rawData;
+    }
+
+    // Normalize data
+    const normalizedData = records.map(item => {
+      // Helper to parse price strings (remove commas, parse to int)
+      const parsePrice = (priceStr) => {
+        if (!priceStr) return null;
+        const cleaned = String(priceStr).replace(/,/g, '').trim();
+        const parsed = parseInt(cleaned, 10);
+        return isNaN(parsed) ? null : parsed;
+      };
+
+      return {
+        state: item.state || null,
+        district: item.district || null,
+        market: item.market || item.district || null,
+        commodity: item.commodity || null,
+        variety: item.variety || null,
+        min_price: parsePrice(item.min_price),
+        max_price: parsePrice(item.max_price),
+        modal_price: parsePrice(item.modal_price),
+        arrival_date: item.arrival_date || null
+      };
+    });
+
+    // Build response
+    const response = {
+      meta: {
+        offset: parsedOffset,
+        limit: parsedLimit,
+        count: normalizedData.length
+      },
+      data: normalizedData
+    };
+
+    // Cache the response
+    MARKET_CACHE.set(cacheKey, {
+      timestamp: Date.now(),
+      data: response
+    });
+    console.log(`market-proxy: CACHE MISS - cached for key=${cacheKey}`);
+
+    res.set('X-Cache', 'MISS');
+    return res.json(response);
+
+  } catch (error) {
+    console.error('market-proxy ERROR:', error.message);
+
+    // Handle specific error cases
+    if (error.response) {
+      const status = error.response.status;
+      const upstreamData = error.response.data;
+
+      console.error(`market-proxy: upstream error ${status}`, upstreamData);
+
+      // Rate limit error
+      if (status === 429) {
+        const retryAfter = error.response.headers['retry-after'] || 60;
+        res.set('Retry-After', String(retryAfter));
+        return res.status(503).json({
+          message: 'Upstream rate limit exceeded, please try again later',
+          retry_after: retryAfter
+        });
+      }
+
+      // Upstream server error
+      if (status >= 500) {
+        return res.status(502).json({
+          message: 'Upstream server error - market data temporarily unavailable'
+        });
+      }
+
+      // Other upstream errors (4xx)
+      return res.status(502).json({
+        message: 'Failed to fetch market data from upstream API'
+      });
+    }
+
+    // Timeout or network error
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      return res.status(504).json({
+        message: 'Request timeout - upstream API not responding'
+      });
+    }
+
+    // Generic error
+    console.error('market-proxy: unexpected error', error);
+    return res.status(500).json({
+      message: 'Internal server error fetching market data'
+    });
   }
 });
 

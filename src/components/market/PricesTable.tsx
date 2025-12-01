@@ -15,13 +15,13 @@ interface PricesTableProps {
   onSortChange: (field: keyof MarketPrice) => void;
 }
 
-export const PricesTable = ({ 
-  prices, 
-  loading, 
-  pagination, 
-  sort, 
-  onPageChange, 
-  onSortChange 
+export const PricesTable = ({
+  prices,
+  loading,
+  pagination,
+  sort,
+  onPageChange,
+  onSortChange
 }: PricesTableProps) => {
 
   const formatPrice = (price: number) => {
@@ -53,16 +53,7 @@ export const PricesTable = ({
   const renderTableHeader = () => (
     <TableHeader>
       <TableRow>
-        <TableHead 
-          className="cursor-pointer hover:bg-muted/50 transition-colors"
-          onClick={() => onSortChange('date')}
-        >
-          <div className="flex items-center gap-2">
-            Date
-            {getSortIcon('date')}
-          </div>
-        </TableHead>
-        <TableHead 
+        <TableHead
           className="cursor-pointer hover:bg-muted/50 transition-colors"
           onClick={() => onSortChange('state')}
         >
@@ -71,7 +62,7 @@ export const PricesTable = ({
             {getSortIcon('state')}
           </div>
         </TableHead>
-        <TableHead 
+        <TableHead
           className="cursor-pointer hover:bg-muted/50 transition-colors"
           onClick={() => onSortChange('district')}
         >
@@ -80,45 +71,52 @@ export const PricesTable = ({
             {getSortIcon('district')}
           </div>
         </TableHead>
-        <TableHead 
+        <TableHead
           className="cursor-pointer hover:bg-muted/50 transition-colors"
-          onClick={() => onSortChange('crop')}
+          onClick={() => onSortChange('market')}
         >
           <div className="flex items-center gap-2">
-            Crop
-            {getSortIcon('crop')}
+            Market
+            {getSortIcon('market')}
+          </div>
+        </TableHead>
+        <TableHead
+          className="cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => onSortChange('commodity')}
+        >
+          <div className="flex items-center gap-2">
+            Commodity
+            {getSortIcon('commodity')}
           </div>
         </TableHead>
         <TableHead>Variety</TableHead>
-        <TableHead>Unit</TableHead>
-        <TableHead 
+        <TableHead
           className="cursor-pointer hover:bg-muted/50 transition-colors text-right"
-          onClick={() => onSortChange('minPrice')}
+          onClick={() => onSortChange('min_price')}
         >
           <div className="flex items-center justify-end gap-2">
             Min Price
-            {getSortIcon('minPrice')}
+            {getSortIcon('min_price')}
           </div>
         </TableHead>
-        <TableHead 
+        <TableHead
           className="cursor-pointer hover:bg-muted/50 transition-colors text-right"
-          onClick={() => onSortChange('maxPrice')}
+          onClick={() => onSortChange('max_price')}
         >
           <div className="flex items-center justify-end gap-2">
             Max Price
-            {getSortIcon('maxPrice')}
+            {getSortIcon('max_price')}
           </div>
         </TableHead>
-        <TableHead 
+        <TableHead
           className="cursor-pointer hover:bg-muted/50 transition-colors text-right"
-          onClick={() => onSortChange('modalPrice')}
+          onClick={() => onSortChange('modal_price')}
         >
           <div className="flex items-center justify-end gap-2">
             Modal Price
-            {getSortIcon('modalPrice')}
+            {getSortIcon('modal_price')}
           </div>
         </TableHead>
-        <TableHead>Source</TableHead>
       </TableRow>
     </TableHeader>
   );
@@ -127,16 +125,14 @@ export const PricesTable = ({
     <TableBody>
       {Array.from({ length: 10 }).map((_, index) => (
         <TableRow key={index}>
-          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
           <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-28" /></TableCell>
           <TableCell><Skeleton className="h-4 w-28" /></TableCell>
           <TableCell><Skeleton className="h-4 w-20" /></TableCell>
           <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
           <TableCell><Skeleton className="h-4 w-20" /></TableCell>
           <TableCell><Skeleton className="h-4 w-20" /></TableCell>
           <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
         </TableRow>
       ))}
     </TableBody>
@@ -145,7 +141,7 @@ export const PricesTable = ({
   const renderEmptyState = () => (
     <TableBody>
       <TableRow>
-        <TableCell colSpan={10} className="text-center py-12">
+        <TableCell colSpan={8} className="text-center py-12">
           <div className="text-muted-foreground">
             <div className="text-lg mb-2">📊 No prices found</div>
             <p>Try adjusting your filters or check back later for updated data.</p>
@@ -157,25 +153,25 @@ export const PricesTable = ({
 
   const renderDataRows = () => (
     <TableBody>
-      {prices.map((price) => (
-        <TableRow key={price.id} className="hover:bg-muted/50 transition-colors">
-          <TableCell className="font-medium">{formatDate(price.date)}</TableCell>
-          <TableCell>{price.state}</TableCell>
-          <TableCell>{price.mandi}</TableCell>
+      {prices.map((price, index) => (
+        <TableRow key={`${price.state}-${price.district}-${price.commodity}-${index}`} className="hover:bg-muted/50 transition-colors">
+          <TableCell>{price.state || '—'}</TableCell>
+          <TableCell>{price.district || '—'}</TableCell>
+          <TableCell>{price.market || price.district || '—'}</TableCell>
           <TableCell>
             <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-              {price.crop}
+              {price.commodity || '—'}
             </Badge>
           </TableCell>
-          <TableCell className="text-muted-foreground">{price.variety}</TableCell>
-          <TableCell className="text-muted-foreground">{price.unit}</TableCell>
-          <TableCell className="text-right font-mono">{formatPrice(price.minPrice)}</TableCell>
-          <TableCell className="text-right font-mono">{formatPrice(price.maxPrice)}</TableCell>
-          <TableCell className="text-right font-mono font-semibold">{formatPrice(price.modalPrice)}</TableCell>
-          <TableCell>
-            <Badge variant="secondary" className="text-xs">
-              {price.source}
-            </Badge>
+          <TableCell className="text-muted-foreground">{price.variety || '—'}</TableCell>
+          <TableCell className="text-right font-mono">
+            {price.min_price !== null ? formatPrice(price.min_price) : '—'}
+          </TableCell>
+          <TableCell className="text-right font-mono">
+            {price.max_price !== null ? formatPrice(price.max_price) : '—'}
+          </TableCell>
+          <TableCell className="text-right font-mono font-semibold">
+            {price.modal_price !== null ? formatPrice(price.modal_price) : '—'}
           </TableCell>
         </TableRow>
       ))}
@@ -191,7 +187,7 @@ export const PricesTable = ({
         <div className="text-sm text-muted-foreground">
           Page {currentPage} of {totalPages}
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -201,7 +197,7 @@ export const PricesTable = ({
           >
             <ChevronsLeft className="h-4 w-4" />
           </Button>
-          
+
           <Button
             variant="outline"
             size="sm"
@@ -210,7 +206,7 @@ export const PricesTable = ({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          
+
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               let page;
@@ -223,7 +219,7 @@ export const PricesTable = ({
               } else {
                 page = currentPage - 2 + i;
               }
-              
+
               return (
                 <Button
                   key={page}
@@ -237,7 +233,7 @@ export const PricesTable = ({
               );
             })}
           </div>
-          
+
           <Button
             variant="outline"
             size="sm"
@@ -246,7 +242,7 @@ export const PricesTable = ({
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          
+
           <Button
             variant="outline"
             size="sm"
@@ -270,7 +266,7 @@ export const PricesTable = ({
           </Table>
         </div>
       </div>
-      
+
       {!loading && prices.length > 0 && renderPagination()}
     </div>
   );

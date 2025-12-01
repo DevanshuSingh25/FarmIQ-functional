@@ -25,7 +25,7 @@ export interface SortState {
 const MarketPrices = () => {
   const [prices, setPrices] = useState<MarketPrice[]>([]);
   const [loading, setLoading] = useState(false);
-  
+
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [language, setLanguage] = useState<'English' | 'Hindi' | 'Punjabi'>('English');
 
@@ -36,19 +36,19 @@ const MarketPrices = () => {
   const [filters, setFilters] = useState<MarketPriceFilters>({
     crop: "all",
     state: "all",
-    district: "all",
-    date: new Date().toISOString().split('T')[0]
+    district: "all"
   });
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
-    pageSize: 25,
+    pageSize: 100,
     total: 0
   });
   const [sort, setSort] = useState<SortState>({
-    field: 'date',
-    direction: 'desc'
+    field: 'commodity',
+    direction: 'asc'
   });
   const [lastUpdated, setLastUpdated] = useState<string>("");
+  const [latestPriceDate, setLatestPriceDate] = useState<string>("");
   const [nextRefreshIn, setNextRefreshIn] = useState<number>(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [error, setError] = useState<string>("");
@@ -76,10 +76,10 @@ const MarketPrices = () => {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -87,22 +87,22 @@ const MarketPrices = () => {
   }, []);
 
   const fetchPrices = useCallback(async (
-    currentFilters: MarketPriceFilters, 
-    currentPage = 1, 
-    currentPageSize = 25, 
+    currentFilters: MarketPriceFilters,
+    currentPage = 1,
+    currentPageSize = 100,
     currentSort = sort
   ) => {
     setLoading(true);
     setError("");
-    
+
     try {
       const response = await marketPricesService.getPrices(
-        currentFilters, 
-        currentPage, 
-        currentPageSize, 
+        currentFilters,
+        currentPage,
+        currentPageSize,
         `${currentSort.field}:${currentSort.direction}`
       );
-      
+
       setPrices(response.data);
       setPagination({
         page: response.page,
@@ -110,11 +110,28 @@ const MarketPrices = () => {
         total: response.total
       });
       setLastUpdated(response.lastUpdated);
-      
+
+      // Extract latest arrival date from the data
+      if (response.data && response.data.length > 0) {
+        const dates = response.data
+          .map(item => item.arrival_date)
+          .filter(date => date !== null);
+
+        if (dates.length > 0) {
+          // Get the most recent date (assuming DD/MM/YYYY format)
+          const sortedDates = dates.sort((a, b) => {
+            const [dayA, monthA, yearA] = a!.split('/').map(Number);
+            const [dayB, monthB, yearB] = b!.split('/').map(Number);
+            return new Date(yearB, monthB - 1, dayB).getTime() - new Date(yearA, monthA - 1, dayA).getTime();
+          });
+          setLatestPriceDate(sortedDates[0]!);
+        }
+      }
+
       // Set next refresh countdown (24 hours = 86400 seconds)
       const nextUpdate = await marketPricesService.getLastUpdated();
       setNextRefreshIn(nextUpdate.nextRefreshInSeconds);
-      
+
       // Show toast for auto-refresh
       if (currentPage === pagination.page && prices.length > 0) {
         toast({
@@ -122,7 +139,7 @@ const MarketPrices = () => {
           description: "Market prices have been refreshed with latest data",
         });
       }
-      
+
     } catch (err) {
       setError("Failed to fetch market prices. Please try again.");
       console.error("Error fetching prices:", err);
@@ -140,7 +157,7 @@ const MarketPrices = () => {
     setFilters(newFilters);
     setPagination(prev => ({ ...prev, page: 1 }));
     fetchPrices(newFilters, 1, pagination.pageSize, sort);
-    
+
     // Save filters to localStorage
     localStorage.setItem('farmiq-market-filters', JSON.stringify(newFilters));
   };
@@ -187,17 +204,17 @@ const MarketPrices = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <FarmIQNavbar 
+      <FarmIQNavbar
         theme={theme}
         language={language}
         onThemeToggle={toggleTheme}
         onLanguageChange={setLanguage}
       />
-      
+
       {/* Header */}
       <div className="border-b bg-card group relative">
         <div className="absolute top-4 right-4 z-10">
-          <SectionSpeaker 
+          <SectionSpeaker
             getText={() => "Market Prices page. Get official crop prices refreshed daily. Filter by crop type, state, and district to find current market rates and make informed selling decisions."}
             sectionId="market-prices-header"
             ariaLabel="Read market prices page information"
@@ -213,8 +230,13 @@ const MarketPrices = () => {
               <p className="text-muted-foreground mt-1">
                 Official prices refreshed daily
               </p>
+              {latestPriceDate && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Prices are updated up to {latestPriceDate}
+                </p>
+              )}
             </div>
-            
+
             <div className="flex items-center gap-4">
               {!isOnline && (
                 <Badge variant="destructive" className="gap-2">
@@ -222,7 +244,7 @@ const MarketPrices = () => {
                   Offline
                 </Badge>
               )}
-              
+
               {lastUpdated && (
                 <div className="text-right">
                   <Badge variant="secondary" className="gap-2">
@@ -286,8 +308,8 @@ const MarketPrices = () => {
               </span>
             )}
           </p>
-          
-          <Button 
+
+          <Button
             onClick={handleExportCSV}
             disabled={prices.length === 0}
             variant="outline"

@@ -56,7 +56,7 @@ export const PricesFilters = ({ filters, onFiltersChange, loading }: PricesFilte
     if (localFilters.state) {
       const districts = DISTRICTS[localFilters.state as keyof typeof DISTRICTS] || [];
       setAvailableDistricts(districts);
-      
+
       // Clear district if it's not available in the new state
       if (localFilters.district && localFilters.district !== "all" && !districts.includes(localFilters.district)) {
         setLocalFilters(prev => ({ ...prev, district: "all" }));
@@ -82,8 +82,7 @@ export const PricesFilters = ({ filters, onFiltersChange, loading }: PricesFilte
     const resetFilters: MarketPriceFilters = {
       crop: "all",
       state: "all",
-      district: "all",
-      date: new Date().toISOString().split('T')[0]
+      district: "all"
     };
     setLocalFilters(resetFilters);
     onFiltersChange(resetFilters);
@@ -98,7 +97,7 @@ export const PricesFilters = ({ filters, onFiltersChange, loading }: PricesFilte
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Crop Filter */}
         <div className="space-y-2">
           <Label htmlFor="crop">Crop</Label>
@@ -156,20 +155,6 @@ export const PricesFilters = ({ filters, onFiltersChange, loading }: PricesFilte
             </SelectContent>
           </Select>
         </div>
-
-        {/* Date Filter */}
-        <div className="space-y-2">
-          <Label htmlFor="date">Date</Label>
-          <Input
-            id="date"
-            type="date"
-            value={localFilters.date}
-            onChange={(e) => handleFilterChange('date', e.target.value)}
-            onKeyPress={handleKeyPress}
-            max={new Date().toISOString().split('T')[0]}
-            min={new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-          />
-        </div>
       </div>
 
       {/* Action Buttons */}
@@ -182,7 +167,7 @@ export const PricesFilters = ({ filters, onFiltersChange, loading }: PricesFilte
           <Search className="h-4 w-4" />
           {loading ? "Searching..." : "Search"}
         </Button>
-        
+
         <Button
           variant="outline"
           onClick={handleReset}
