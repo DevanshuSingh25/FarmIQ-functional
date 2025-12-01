@@ -62,6 +62,8 @@ const SoilAnalysis = () => {
     document.documentElement.classList.toggle('dark');
   };
   const [soilImage, setSoilImage] = useState<File | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [soilResult, setSoilResult] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -83,26 +85,49 @@ const SoilAnalysis = () => {
     }
   };
 
-  const handleSelfAnalysis = () => {
-    // Simulate ML analysis
-    const analysisResult = {
-      soilType: "Clay Loam",
-      ph: "6.2 (Slightly Acidic)",
-      nitrogen: "Low",
-      phosphorus: "Medium",
-      potassium: "High",
-      organicMatter: "3.2%",
-      recommendations: [
-        "Add organic compost to improve nitrogen levels",
-        "Apply lime to increase pH to neutral range (6.8-7.2)",
-        "Reduce potassium-based fertilizers this season",
-        "Consider crop rotation with legumes"
-      ],
-      suitableCrops: ["Wheat", "Rice", "Sugarcane", "Cotton"]
-    };
+  const handleSelfAnalysis = async () => {
+    if (!soilImage) {
+      toast({
+        title: "Image Required",
+        description: "Please upload a soil image first",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    // Here you would normally send the data to ML service
-    console.log("Analysis submitted:", { formData, soilImage, analysisResult });
+    setAnalyzing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", soilImage);
+
+      const response = await fetch("http://localhost:8000/soil-predict", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      setSoilResult(result);
+
+      toast({
+        title: "Analysis Complete!",
+        description: `Detected: ${result.soil_type}`,
+      });
+    } catch (error) {
+      console.error("Soil analysis error:", error);
+      toast({
+        title: "Analysis Failed",
+        description: "Could not analyze soil. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   if (analysisMethod === null) {
@@ -457,22 +482,12 @@ const SoilAnalysis = () => {
               </div>
 
               <div>
-                <Label htmlFor="soilType">What type of soil do you think it is?</Label>
-                <Input
-                  id="soilType"
-                  value={formData.soilType}
-                  onChange={(e) => setFormData({ ...formData, soilType: e.target.value })}
-                  placeholder="e.g., Clay, Sandy, Loamy"
-                />
-              </div>
-
-              <div>
                 <Label htmlFor="previousCrops">What crops did you grow previously?</Label>
                 <Input
                   id="previousCrops"
                   value={formData.previousCrops}
                   onChange={(e) => setFormData({ ...formData, previousCrops: e.target.value })}
-                  placeholder="Last 2-3 crops grown"
+                  placeholder="Name of last 2-3 crops grown"
                 />
               </div>
 
@@ -563,39 +578,132 @@ const SoilAnalysis = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Tips for Best Results</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
-                    <span>Take photo in good lighting</span>
+            {soilResult ? (
+              <Card className="border-success/50 bg-success/5">
+                <CardHeader>
+                  <CardTitle className="text-xl">Soil Analysis Result</CardTitle>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Badge variant="default" className="text-lg px-4 py-1">
+                      {soilResult.soil_type}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {(soilResult.confidence * 100).toFixed(1)}% confidence
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
-                    <span>Remove any debris or stones</span>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Confidence Progress */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Confidence</span>
+                      <span className="font-semibold">{(soilResult.confidence * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${soilResult.confidence >= 0.45
+                          ? 'bg-success'
+                          : 'bg-warning'
+                          }`}
+                        style={{ width: `${soilResult.confidence * 100}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
-                    <span>Show soil texture clearly</span>
+
+                  {/* Low Confidence Warning */}
+                  {soilResult.confidence < 0.45 && (
+                    <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
+                      <p className="text-sm text-warning-foreground">
+                        <strong>Low confidence detected.</strong> Consider forwarding to an expert for verification.
+                      </p>
+                      <Button variant="outline" size="sm" className="mt-2" onClick={() => {
+                        toast({
+                          title: "Expert Referral",
+                          description: "Feature coming soon - you'll be able to send this to a soil expert!"
+                        });
+                      }}>
+                        Forward to Expert
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Characteristics */}
+                  {soilResult.recommendations?.characteristics && (
+                    <div>
+                      <h4 className="font-semibold mb-2">Characteristics</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {soilResult.recommendations.characteristics}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Recommended Crops */}
+                  {soilResult.recommendations?.best_crops && soilResult.recommendations.best_crops.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold mb-2">Recommended Crops</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {soilResult.recommendations.best_crops.map((crop: string, idx: number) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {crop}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setSoilResult(null);
+                      setSoilImage(null);
+                    }}
+                  >
+                    Analyze Another Sample
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tips for Best Results</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                      <span>Take photo in good lighting</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                      <span>Remove any debris or stones</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                      <span>Show soil texture clearly</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                      <span>Answer all questions honestly</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
-                    <span>Answer all questions honestly</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             <Button
               className="w-full"
               size="lg"
               onClick={handleSelfAnalysis}
-              disabled={!soilImage || !formData.cropType}
+              disabled={!soilImage || analyzing}
             >
-              Analyze My Soil
+              {analyzing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                'Analyze My Soil'
+              )}
             </Button>
           </div>
         </div>

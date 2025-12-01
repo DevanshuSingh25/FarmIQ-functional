@@ -33,7 +33,6 @@ pnpm-debug.log*
 *.sw?
 
 # Model files and training notebooks
-Copy of Plant Disease Model Training.ipynb
 plant_disease_recog_model_pwp.keras
 model.weights.h5
 *.keras
