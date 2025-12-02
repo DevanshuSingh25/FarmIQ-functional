@@ -274,6 +274,65 @@ const dbHelpers = {
     });
   },
 
+  // Get eligible government schemes based on farmer's criteria
+  getEligibleSchemes: (filters) => {
+    return new Promise((resolve, reject) => {
+      const { state, land, category, age } = filters;
+
+      console.log('🔍 Filtering schemes with criteria:', { state, land, category, age });
+
+      // Build dynamic SQL query
+      let query = `SELECT * FROM ngo_schemes WHERE 1=1`;
+      const params = [];
+
+      // State filter: Match if required_state is NULL, 'ALL', or matches the input state
+      if (state) {
+        query += ` AND (required_state IS NULL OR required_state = 'ALL' OR required_state = ?)`;
+        params.push(state);
+      }
+
+      // Land size filter: Match if within min_land and max_land range
+      if (land !== undefined && land !== null) {
+        query += ` AND (
+          (min_land IS NULL OR ? >= min_land) AND
+          (max_land IS NULL OR ? <= max_land)
+        )`;
+        params.push(land, land);
+      }
+
+      // Category filter: Match if required_category is NULL, 'ALL', or matches input
+      if (category) {
+        query += ` AND (required_category IS NULL OR required_category = 'ALL' OR required_category = ?)`;
+        params.push(category);
+      }
+
+      // Age filter: Match if within age_min and age_max range
+      if (age !== undefined && age !== null) {
+        query += ` AND (
+          (age_min IS NULL OR ? >= age_min) AND
+          (age_max IS NULL OR ? <= age_max)
+        )`;
+        params.push(age, age);
+      }
+
+      // Order by created_at descending
+      query += ` ORDER BY created_at DESC`;
+
+      console.log('📝 SQL Query:', query);
+      console.log('📌 Query Params:', params);
+
+      db.all(query, params, (err, rows) => {
+        if (err) {
+          console.error('❌ Error filtering schemes:', err);
+          reject(err);
+          return;
+        }
+        console.log(`✅ Found ${rows?.length || 0} eligible schemes`);
+        resolve(rows || []);
+      });
+    });
+  },
+
   // ========== SOIL LAB HELPERS ==========
 
   // Get all soil labs

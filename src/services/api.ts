@@ -15,9 +15,27 @@ export interface NgoScheme {
     status?: string;
     benefit_text?: string;
     eligibility_text?: string;
+    // New eligibility fields
+    scheme_type?: string;
+    required_state?: string;
+    min_land?: number;
+    max_land?: number;
+    required_category?: string;
+    age_min?: number;
+    age_max?: number;
+    official_link?: string;
     created_at: string;
     updated_at: string;
 }
+
+export interface EligibilityFilters {
+    state?: string;
+    land?: number;
+    category?: string;
+    age?: number;
+    crop?: string;
+}
+
 
 export interface SoilLab {
     id: number;
@@ -92,6 +110,17 @@ export const deleteNgoScheme = (id: number): Promise<{ message: string }> => {
         method: 'DELETE',
     });
 };
+
+// ========== GOVERNMENT SCHEMES ELIGIBILITY FILTER API ==========
+
+export const filterEligibleSchemes = (filters: EligibilityFilters): Promise<NgoScheme[]> => {
+    console.log('🔍 Calling filterEligibleSchemes API with:', filters);
+    return makeRequest<NgoScheme[]>('/government-schemes/filter', {
+        method: 'POST',
+        body: JSON.stringify(filters),
+    });
+};
+
 
 // ========== SOIL LABS API ==========
 

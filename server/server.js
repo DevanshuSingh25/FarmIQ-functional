@@ -296,6 +296,43 @@ app.get('/api/ngo-schemes', requireAuth, async (req, res) => {
   }
 });
 
+// ========== GOVERNMENT SCHEMES ELIGIBILITY FILTER ==========
+
+// Filter government schemes based on eligibility criteria
+app.post('/api/government-schemes/filter', requireAuth, async (req, res) => {
+  try {
+    const { state, land, category, age, crop } = req.body;
+
+    console.log('🌾 Government Schemes Filter Request:', {
+      userId: req.session.userId,
+      userRole: req.session.role,
+      filters: { state, land, category, age, crop }
+    });
+
+    // Validate input
+    if (!state && land === undefined && !category && age === undefined) {
+      return res.status(400).json({
+        message: 'At least one filter criteria (state, land, category, or age) is required'
+      });
+    }
+
+    // Call the eligibility helper function
+    const eligibleSchemes = await dbHelpers.getEligibleSchemes({
+      state,
+      land: land !== undefined ? parseFloat(land) : undefined,
+      category,
+      age: age !== undefined ? parseInt(age) : undefined
+    });
+
+    console.log(`✅ Returning ${eligibleSchemes.length} eligible schemes to farmer`);
+
+    res.json(eligibleSchemes);
+  } catch (error) {
+    console.error('❌ Government schemes filter error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Get NGO scheme by ID (all authenticated users can read)
 app.get('/api/ngo-schemes/:id', requireAuth, async (req, res) => {
   try {
