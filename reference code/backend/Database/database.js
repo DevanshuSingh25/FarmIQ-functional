@@ -42,6 +42,33 @@ const initDatabase = () => {
         console.log('Index created successfully');
         resolve();
       });
+      // Create forum_posts table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS forum_posts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          category TEXT NOT NULL,
+          question TEXT NOT NULL,
+          created_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `, (err) => {
+        if (err) console.error('Error creating forum_posts table:', err);
+      });
+
+      // Create forum_replies table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS forum_replies (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          post_id INTEGER NOT NULL,
+          reply_text TEXT NOT NULL,
+          replied_by TEXT NOT NULL,
+          created_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (post_id) REFERENCES forum_posts(id)
+        )
+      `, (err) => {
+        if (err) console.error('Error creating forum_replies table:', err);
+      });
     });
   });
 };
@@ -274,65 +301,6 @@ const dbHelpers = {
     });
   },
 
-  // Get eligible government schemes based on farmer's criteria
-  getEligibleSchemes: (filters) => {
-    return new Promise((resolve, reject) => {
-      const { state, land, category, age } = filters;
-
-      console.log('🔍 Filtering schemes with criteria:', { state, land, category, age });
-
-      // Build dynamic SQL query
-      let query = `SELECT * FROM ngo_schemes WHERE 1=1`;
-      const params = [];
-
-      // State filter: Match if required_state is NULL, 'ALL', or matches the input state
-      if (state) {
-        query += ` AND (required_state IS NULL OR required_state = 'ALL' OR required_state = ?)`;
-        params.push(state);
-      }
-
-      // Land size filter: Match if within min_land and max_land range
-      if (land !== undefined && land !== null) {
-        query += ` AND (
-          (min_land IS NULL OR ? >= min_land) AND
-          (max_land IS NULL OR ? <= max_land)
-        )`;
-        params.push(land, land);
-      }
-
-      // Category filter: Match if required_category is NULL, 'ALL', or matches input
-      if (category) {
-        query += ` AND (required_category IS NULL OR required_category = 'ALL' OR required_category = ?)`;
-        params.push(category);
-      }
-
-      // Age filter: Match if within age_min and age_max range
-      if (age !== undefined && age !== null) {
-        query += ` AND (
-          (age_min IS NULL OR ? >= age_min) AND
-          (age_max IS NULL OR ? <= age_max)
-        )`;
-        params.push(age, age);
-      }
-
-      // Order by created_at descending
-      query += ` ORDER BY created_at DESC`;
-
-      console.log('📝 SQL Query:', query);
-      console.log('📌 Query Params:', params);
-
-      db.all(query, params, (err, rows) => {
-        if (err) {
-          console.error('❌ Error filtering schemes:', err);
-          reject(err);
-          return;
-        }
-        console.log(`✅ Found ${rows?.length || 0} eligible schemes`);
-        resolve(rows || []);
-      });
-    });
-  },
-
   // ========== SOIL LAB HELPERS ==========
 
   // Get all soil labs
@@ -536,48 +504,68 @@ const dbHelpers = {
     });
   },
 
-  // ========== IOT SENSOR HELPERS ==========
-
-  // Get IoT booking request by user ID
-  getIotReadingByUserId: (userId) => {
+  // Get all farmers
+  getFarmers: () => {
     return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT * FROM iot_reading WHERE user_id = ? ORDER BY created_at DESC LIMIT 1`,
-        [userId],
-        (err, row) => {
+      db.all(
+        `SELECT p.id, p.full_name as name, p.email, p.phone_number as mobile,
+                p.crops_grown, p.available_quantity, p.location, p.expected_price
+         FROM profiles p
+         JOIN users u ON p.id = u.id
+         WHERE u.role = 'farmer'`,
+        [],
+        (err, rows) => {
           if (err) {
             reject(err);
             return;
           }
-          resolve(row);
+          resolve(rows || []);
         }
       );
     });
   },
+  // ========== FORUM HELPERS ==========
 
-  // Create IoT booking request
-  createIotReading: (userId, data) => {
+  // Get all forum posts with replies
+  getForumPosts: () => {
     return new Promise((resolve, reject) => {
-      const { name, phone_number, location, state, district, preferred_visit_date } = data;
-      db.run(
-        `INSERT INTO iot_reading (user_id, name, phone_number, location, state, district, preferred_visit_date, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
-        [userId, name, phone_number, location || '', state || '', district || '', preferred_visit_date || ''],
-        function (err) {
+      // First get all posts
+      db.all(
+        `SELECT fp.id, fp.user_id, fp.category, fp.question, fp.created_at, p.full_name as farmer_name
+         FROM forum_posts fp
+         LEFT JOIN profiles p ON fp.user_id = p.id
+         ORDER BY fp.created_at DESC`,
+        [],
+        (err, posts) => {
           if (err) {
             reject(err);
             return;
           }
-          // Return the created record
-          db.get(
-            `SELECT * FROM iot_reading WHERE id = ?`,
-            [this.lastID],
-            (err, row) => {
+
+          if (!posts || posts.length === 0) {
+            resolve([]);
+            return;
+          }
+
+          // Then get all replies
+          db.all(
+            `SELECT * FROM forum_replies ORDER BY created_at ASC`,
+            [],
+            (err, replies) => {
               if (err) {
                 reject(err);
                 return;
               }
-              resolve(row);
+
+              // Map replies to posts
+              const postsWithReplies = posts.map(post => {
+                return {
+                  ...post,
+                  replies: replies.filter(reply => reply.post_id === post.id)
+                };
+              });
+
+              resolve(postsWithReplies);
             }
           );
         }
@@ -585,100 +573,38 @@ const dbHelpers = {
     });
   },
 
-  // Get IoT status by user ID
-  getIotStatusByUserId: (userId) => {
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT * FROM iot_status WHERE user_id = ?`,
-        [userId],
-        (err, row) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(row);
-        }
-      );
-    });
-  },
-
-  // Upsert IoT status (create or update)
-  upsertIotStatus: (userId, status) => {
+  // Create forum post
+  createForumPost: (userId, category, question) => {
     return new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO iot_status (user_id, status, updated_at)
-         VALUES (?, ?, datetime('now'))
-         ON CONFLICT(user_id) DO UPDATE SET
-           status = excluded.status,
-           updated_at = datetime('now')`,
-        [userId, status],
+        `INSERT INTO forum_posts (user_id, category, question) VALUES (?, ?, ?)`,
+        [userId, category, question],
         function (err) {
           if (err) {
             reject(err);
             return;
           }
-          // Return the updated status
-          db.get(
-            `SELECT * FROM iot_status WHERE user_id = ?`,
-            [userId],
-            (err, row) => {
-              if (err) {
-                reject(err);
-                return;
-              }
-              resolve(row);
-            }
-          );
+          resolve({ id: this.lastID });
         }
       );
     });
   },
 
-  // ========== PROFILE SEARCH HELPERS ==========
-
-  // Get profiles with optional search filter (for vendor farmer search)
-  getProfiles: (filter = {}) => {
+  // Create forum reply
+  createForumReply: (postId, replyText, repliedBy) => {
     return new Promise((resolve, reject) => {
-      let query = `SELECT id, full_name, crops_grown, available_quantity, location, expected_price 
-                   FROM profiles WHERE 1=1`;
-      const params = [];
-
-      // Search filter (case-insensitive substring match on name and location)
-      if (filter.q) {
-        query += ` AND (LOWER(full_name) LIKE ? OR LOWER(location) LIKE ?)`;
-        const searchTerm = `%${filter.q.toLowerCase()}%`;
-        params.push(searchTerm, searchTerm);
-      }
-
-      query += ` ORDER BY id DESC`;
-
-      db.all(query, params, (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
+      db.run(
+        `INSERT INTO forum_replies (post_id, reply_text, replied_by) VALUES (?, ?, ?)`,
+        [postId, replyText, repliedBy],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ id: this.lastID });
         }
-        resolve(rows || []);
-      });
+      );
     });
-  },
-
-  // Generate mock sensor readings
-  generateMockReadings: (limit = 24) => {
-    const readings = [];
-    const now = new Date();
-
-    for (let i = limit - 1; i >= 0; i--) {
-      const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
-      readings.push({
-        timestamp: timestamp.toISOString(),
-        temperature: Math.round((28 + Math.sin(i / 4) * 5 + Math.random() * 2) * 10) / 10,
-        humidity: Math.round((65 + Math.cos(i / 3) * 10 + Math.random() * 5)),
-        soil_moisture: Math.round((45 + Math.sin(i / 2) * 15 + Math.random() * 10)),
-        light_level: i >= 6 && i <= 18 ? (Math.random() > 0.5 ? 'High' : 'Medium') : 'Low'
-      });
-    }
-
-    return readings;
   }
 };
 

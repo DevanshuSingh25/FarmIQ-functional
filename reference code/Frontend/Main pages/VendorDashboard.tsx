@@ -1,7 +1,5 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useNavigate, Link } from 'react-router-dom';
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Menu,
@@ -13,16 +11,17 @@ import {
   Sprout,
   TrendingUp,
   Search,
+  MessageCircle,
   BarChart3,
+  ArrowUpRight,
   Leaf,
   LogOut,
   Info,
   UserCircle,
   LayoutDashboard,
   QrCode,
-  ChevronRight,
-  MessageCircle,
-  Phone
+  Cpu,
+  ChevronRight
 } from 'lucide-react';
 import {
   Sheet,
@@ -37,11 +36,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { setLanguage as setGoogleLanguage } from "@/lib/googleTranslate";
+import { getTranslation } from "@/lib/translations";
 
 export default function VendorDashboard() {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
+  // Navbar State
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [language, setLanguage] = useState<'English' | 'Hindi' | 'Punjabi'>('English');
   const languages = ['English', 'Hindi', 'Punjabi'] as const;
@@ -70,6 +72,7 @@ export default function VendorDashboard() {
                     <SheetTitle className="text-xl font-bold text-gray-900">Navigation</SheetTitle>
                   </SheetHeader>
                   <div className="space-y-3">
+                    {/* Dashboard - Active */}
                     <Link to="/vendor/dashboard" className="flex items-center justify-between px-4 py-3 bg-[#1a5d1a] text-white rounded-full shadow-sm transition-all group">
                       <div className="flex items-center gap-3">
                         <LayoutDashboard className="h-5 w-5 stroke-[2.5]" />
@@ -78,6 +81,7 @@ export default function VendorDashboard() {
                       <ChevronRight className="h-4 w-4 text-white/80" />
                     </Link>
 
+                    {/* Farmer Search */}
                     <Link to="/vendor/farmer-search" className="flex items-center justify-between px-4 py-3 bg-white text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-full transition-all group shadow-sm border border-transparent hover:border-green-100">
                       <div className="flex items-center gap-3">
                         <Search className="h-5 w-5 text-gray-500 group-hover:text-green-700 transition-colors" />
@@ -86,6 +90,7 @@ export default function VendorDashboard() {
                       <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-green-700 transition-colors" />
                     </Link>
 
+                    {/* Market Price */}
                     <Link to="/vendor/market-prices" className="flex items-center justify-between px-4 py-3 bg-white text-gray-700 hover:bg-yellow-50 hover:text-yellow-900 rounded-full transition-all group shadow-sm border border-transparent hover:border-yellow-100">
                       <div className="flex items-center gap-3">
                         <BarChart3 className="h-5 w-5 text-gray-500 group-hover:text-yellow-700 transition-colors" />
@@ -132,7 +137,7 @@ export default function VendorDashboard() {
                   {languages.map((lang) => (
                     <DropdownMenuItem
                       key={lang}
-                      onClick={() => setLanguage(lang)}
+                      onClick={() => { setLanguage(lang); setGoogleLanguage(lang); }}
                       className="cursor-pointer hover:bg-gray-50"
                     >
                       {lang}
@@ -146,7 +151,7 @@ export default function VendorDashboard() {
                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
                 onClick={toggleTheme}
               >
-                <Moon className="h-5 w-5" />
+                {theme === 'light' ? <Moon className="h-5 w-5" /> : <Moon className="h-5 w-5 text-yellow-500" />}
               </button>
 
               <DropdownMenu>
@@ -266,10 +271,11 @@ export default function VendorDashboard() {
 
         {/* Main Sections */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent QR Scans */}
+          {/* Recent QR Scans (Left Box) */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-6">Recent QR Scans</h2>
             <div className="space-y-4">
+              {/* Item 1 */}
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-green-200 transition-colors cursor-pointer">
                 <div>
                   <h4 className="font-bold text-gray-900">Rice - Basmati</h4>
@@ -280,6 +286,7 @@ export default function VendorDashboard() {
                 </span>
               </div>
 
+              {/* Item 2 */}
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-green-200 transition-colors cursor-pointer">
                 <div>
                   <h4 className="font-bold text-gray-900">Wheat - Premium</h4>
@@ -292,14 +299,12 @@ export default function VendorDashboard() {
             </div>
           </div>
 
-          {/* Quick Actions */}
+          {/* Quick Actions (Right Box) */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-6">Quick Actions</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button
-                onClick={() => navigate('/vendor/qr-scan')}
-                className="flex flex-col items-start p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-colors text-left group"
-              >
+              {/* Scan QR */}
+              <button className="flex flex-col items-start p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-colors text-left group">
                 <div className="p-2 bg-white rounded-lg mb-3 shadow-sm group-hover:scale-105 transition-transform">
                   <QrCode className="h-6 w-6 text-green-600" />
                 </div>
@@ -307,10 +312,8 @@ export default function VendorDashboard() {
                 <span className="text-xs text-green-700 mt-1">Verify product</span>
               </button>
 
-              <button
-                onClick={() => navigate('/vendor/market-prices')}
-                className="flex flex-col items-start p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors text-left group"
-              >
+              {/* Market Prices */}
+              <button className="flex flex-col items-start p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors text-left group">
                 <div className="p-2 bg-white rounded-lg mb-3 shadow-sm group-hover:scale-105 transition-transform">
                   <BarChart3 className="h-6 w-6 text-blue-600" />
                 </div>
@@ -318,10 +321,8 @@ export default function VendorDashboard() {
                 <span className="text-xs text-blue-700 mt-1">View rates</span>
               </button>
 
-              <button
-                onClick={() => navigate('/vendor/farmer-search')}
-                className="flex flex-col items-start p-4 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors text-left group"
-              >
+              {/* Search Crops */}
+              <button className="flex flex-col items-start p-4 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors text-left group">
                 <div className="p-2 bg-white rounded-lg mb-3 shadow-sm group-hover:scale-105 transition-transform">
                   <Search className="h-6 w-6 text-emerald-600" />
                 </div>
@@ -329,6 +330,7 @@ export default function VendorDashboard() {
                 <span className="text-xs text-emerald-700 mt-1">Find farmers</span>
               </button>
 
+              {/* Chat Support */}
               <button className="flex flex-col items-start p-4 bg-yellow-50 hover:bg-yellow-100 rounded-xl transition-colors text-left group">
                 <div className="p-2 bg-white rounded-lg mb-3 shadow-sm group-hover:scale-105 transition-transform">
                   <MessageCircle className="h-6 w-6 text-yellow-600" />
@@ -340,6 +342,8 @@ export default function VendorDashboard() {
           </div>
         </div>
       </main>
+
+
     </div>
   );
 }
