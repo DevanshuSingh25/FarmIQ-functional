@@ -1,9 +1,7 @@
-require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const cors = require('cors');
 const path = require('path');
-const axios = require('axios');
 const { initDatabase, dbHelpers, db } = require('./database');
 const authHelpers = require('./auth');
 
@@ -283,6 +281,41 @@ app.get('/api/admin/dashboard', requireAuth, requireRole(['admin']), (req, res) 
   res.json({ message: 'Admin dashboard data' });
 });
 
+// Get all farmers (vendor only)
+app.get('/api/farmers', requireAuth, requireRole(['vendor']), async (req, res) => {
+  try {
+    const farmers = await dbHelpers.getFarmers();
+
+    // Sanitize data to remove garbage characters
+    const sanitizedFarmers = farmers.map(farmer => {
+      return {
+        ...farmer,
+        // Clean expected_price: keep only numbers, ₹, hyphen, slash, kg, quintal
+        expected_price: farmer.expected_price
+          ? (farmer.expected_price.replace(/[^\d₹\-–\/kgquintal\s]/gi, '').trim() || '-')
+          : '-',
+        // Clean crops_grown: alphabets, commas, spaces only
+        crops_grown: farmer.crops_grown
+          ? (farmer.crops_grown.replace(/[^a-zA-Z,\s]/g, '').trim() || '-')
+          : '-',
+        // Clean available_quantity: digits, kg, quintal only
+        available_quantity: farmer.available_quantity
+          ? (farmer.available_quantity.replace(/[^\d\skgquintal]/gi, '').trim() || '-')
+          : '-',
+        // Clean location: letters, commas, spaces only
+        location: farmer.location
+          ? (farmer.location.replace(/[^a-zA-Z,\s]/g, '').trim() || '-')
+          : '-'
+      };
+    });
+
+    res.json(sanitizedFarmers);
+  } catch (error) {
+    console.error('Get farmers error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // ========== NGO SCHEMES ROUTES ==========
 
 // Get all NGO schemes (all authenticated users can read)
@@ -292,43 +325,6 @@ app.get('/api/ngo-schemes', requireAuth, async (req, res) => {
     res.json(schemes);
   } catch (error) {
     console.error('Get NGO schemes error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// ========== GOVERNMENT SCHEMES ELIGIBILITY FILTER ==========
-
-// Filter government schemes based on eligibility criteria
-app.post('/api/government-schemes/filter', requireAuth, async (req, res) => {
-  try {
-    const { state, land, category, age, crop } = req.body;
-
-    console.log('🌾 Government Schemes Filter Request:', {
-      userId: req.session.userId,
-      userRole: req.session.role,
-      filters: { state, land, category, age, crop }
-    });
-
-    // Validate input
-    if (!state && land === undefined && !category && age === undefined) {
-      return res.status(400).json({
-        message: 'At least one filter criteria (state, land, category, or age) is required'
-      });
-    }
-
-    // Call the eligibility helper function
-    const eligibleSchemes = await dbHelpers.getEligibleSchemes({
-      state,
-      land: land !== undefined ? parseFloat(land) : undefined,
-      category,
-      age: age !== undefined ? parseInt(age) : undefined
-    });
-
-    console.log(`✅ Returning ${eligibleSchemes.length} eligible schemes to farmer`);
-
-    res.json(eligibleSchemes);
-  } catch (error) {
-    console.error('❌ Government schemes filter error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -568,417 +564,216 @@ app.delete('/api/crops/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ========== IOT SENSOR BOOKING API ==========
+// IoT Sensor API endpoints
+// Mock technician data
+const technicians = [
+  { id: 'T1', name: 'Ravi Kumar', phone: '9876543210', activeJobsCount: 2 },
+  { id: 'T2', name: 'Simran Kaur', phone: '9876501234', activeJobsCount: 1 },
+  { id: 'T3', name: 'Arjun Mehta', phone: '9876512345', activeJobsCount: 0 },
+];
 
-// GET /api/iot/status/:user_id - Get IoT status for a user
-app.get('/api/iot/status/:user_id', requireAuth, async (req, res) => {
+// Mock data storage (in production, this would be in database)
+let mockRequests = [];
+let mockReadings = [];
+let mockAlerts = [];
+
+// Generate mock readings for the last 24 hours
+const generateMockReadings = () => {
+  const readings = [];
+  const now = new Date();
+
+  for (let i = 23; i >= 0; i--) {
+    const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
+    readings.push({
+      timestamp: timestamp.toISOString(),
+      temperatureC: Math.round((28 + Math.sin(i / 4) * 5 + Math.random() * 2) * 10) / 10,
+      humidityPct: Math.round((65 + Math.cos(i / 3) * 10 + Math.random() * 5)),
+      soilMoisturePct: Math.round((45 + Math.sin(i / 2) * 15 + Math.random() * 10)),
+      lightLevel: i >= 6 && i <= 18 ?
+        (Math.random() > 0.5 ? 'High' : 'Medium') : 'Low'
+    });
+  }
+
+  return readings;
+};
+
+// Generate mock alerts
+const generateMockAlerts = () => {
+  return [
+    {
+      id: 'A1',
+      type: 'moisture',
+      message: 'Low moisture detected — consider light irrigation',
+      severity: 'medium'
+    },
+    {
+      id: 'A2',
+      type: 'temperature',
+      message: 'High temperature in afternoon — monitor crop stress',
+      severity: 'low'
+    }
+  ];
+};
+
+// Initialize mock data
+mockReadings = generateMockReadings();
+mockAlerts = generateMockAlerts();
+
+// Allocate technician (mock logic)
+const allocateTechnician = () => {
+  const technician = technicians.reduce((min, tech) =>
+    tech.activeJobsCount < min.activeJobsCount ? tech : min
+  );
+
+  technician.activeJobsCount++;
+
+  return {
+    id: technician.id,
+    name: technician.name,
+    phone: technician.phone,
+    rating: 4.5
+  };
+};
+
+// GET /api/iot/status - Get current installation request status
+app.get('/api/iot/status', (req, res) => {
   try {
-    const userId = parseInt(req.params.user_id);
-
-    console.log(`🔍 IoT Status Request for user_id: ${userId}`);
-
-    // Special case: user_id === 1 always returns 'active'
-    if (userId === 1) {
-      console.log('📌 Special case: user_id=1, returning active status');
-      return res.json({
-        user_id: userId,
-        status: 'active',
-        updated_at: new Date().toISOString(),
-        note: 'Auto-activated for user ID 1'
-      });
-    }
-
-    // Get or create status from database
-    let status = await dbHelpers.getIotStatusByUserId(userId);
-
-    if (!status) {
-      // Create default 'inactive' status if doesn't exist
-      console.log('📝 Creating default inactive status for user');
-      status = await dbHelpers.upsertIotStatus(userId, 'inactive');
-    }
-
-    res.json(status);
+    const activeRequest = mockRequests.length > 0 ? mockRequests[0] : null;
+    res.json(activeRequest);
   } catch (error) {
-    console.error('❌ Error getting IoT status:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error getting IoT status:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// GET /api/iot/request/:user_id - Get booking request for a user
-app.get('/api/iot/request/:user_id', requireAuth, async (req, res) => {
+// POST /api/iot/request - Create new installation request
+app.post('/api/iot/request', (req, res) => {
   try {
-    const userId = parseInt(req.params.user_id);
-
-    console.log(`🔍 IoT Booking Request for user_id: ${userId}`);
-
-    const booking = await dbHelpers.getIotReadingByUserId(userId);
-
-    if (!booking) {
-      return res.status(404).json({ message: 'No booking request found' });
-    }
-
-    res.json(booking);
-  } catch (error) {
-    console.error('❌ Error getting IoT booking request:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// POST /api/iot/request - Create new booking request
-app.post('/api/iot/request', requireAuth, async (req, res) => {
-  try {
-    const userId = req.session.userId; // Get user_id from session, NOT from request body
-
-    console.log(`📝 Creating IoT booking for user_id: ${userId}`);
+    const requestData = req.body;
 
     // Validate required fields
-    const { name, phone_number, location, state, district, preferred_visit_date } = req.body;
-
-    if (!name || !phone_number) {
-      return res.status(400).json({ message: 'Name and phone number are required' });
+    if (!requestData.farmerName || !requestData.phone || !requestData.preferredDate || !requestData.preferredWindow) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Validate phone number length (7-20 characters)
-    if (phone_number.length < 7 || phone_number.length > 20) {
-      return res.status(400).json({ message: 'Phone number must be between 7 and 20 characters' });
-    }
+    // Create new request
+    const newRequest = {
+      id: `IOT-2025-${String(mockRequests.length + 1).padStart(6, '0')}`,
+      ...requestData,
+      status: 'allocated',
+      technician: allocateTechnician(),
+      appointment: {
+        date: requestData.preferredDate,
+        window: requestData.preferredWindow
+      },
+      createdAt: new Date().toISOString()
+    };
 
-    // Validate date format if provided
-    if (preferred_visit_date) {
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(preferred_visit_date)) {
-        return res.status(400).json({ message: 'Preferred visit date must be in YYYY-MM-DD format' });
-      }
+    // Store request (replace existing if any)
+    mockRequests = [newRequest];
 
-      // Try to parse the date to ensure it's valid
-      const parsedDate = new Date(preferred_visit_date);
-      if (isNaN(parsedDate.getTime())) {
-        return res.status(400).json({ message: 'Invalid date provided' });
-      }
-    }
-
-    // Check if user already has a booking
-    const existingBooking = await dbHelpers.getIotReadingByUserId(userId);
-    if (existingBooking) {
-      console.log('⚠️ User already has an existing booking');
-      return res.status(409).json({
-        message: 'You already have an existing booking request',
-        existing: existingBooking
-      });
-    }
-
-    // Create the booking
-    const newBooking = await dbHelpers.createIotReading(userId, req.body);
-
-    console.log(`✅ Booking created successfully: ID=${newBooking.id}`);
-
-    res.status(201).json(newBooking);
+    res.json(newRequest);
   } catch (error) {
-    console.error('❌ Error creating IoT booking:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error creating IoT request:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// PUT /api/iot/status/:user_id - Update IoT status (admin only)
-app.put('/api/iot/status/:user_id', requireAuth, requireRole(['admin']), async (req, res) => {
+// POST /api/iot/reschedule - Reschedule appointment
+app.post('/api/iot/reschedule', (req, res) => {
   try {
-    const userId = parseInt(req.params.user_id);
-    const { status } = req.body;
+    const { id, newDate, newWindow } = req.body;
 
-    console.log(`🔧 Admin updating IoT status for user_id: ${userId} to: ${status}`);
-
-    // Validate status value
-    const validStatuses = ['inactive', 'active', 'booked'];
-    if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
-      });
+    if (!id || !newDate || !newWindow) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Update or create the status
-    const updatedStatus = await dbHelpers.upsertIotStatus(userId, status);
+    const request = mockRequests.find(r => r.id === id);
+    if (!request) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
 
-    console.log(`✅ Status updated successfully for user_id: ${userId}`);
+    request.appointment = { date: newDate, window: newWindow };
+    request.status = 'scheduled';
 
-    res.json(updatedStatus);
+    res.json(request);
   } catch (error) {
-    console.error('❌ Error updating IoT status:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error rescheduling IoT request:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// GET /api/iot/readings/:user_id - Get sensor readings
-app.get('/api/iot/readings/:user_id', requireAuth, async (req, res) => {
+// POST /api/iot/cancel - Cancel request
+app.post('/api/iot/cancel', (req, res) => {
   try {
-    const userId = parseInt(req.params.user_id);
-    const limit = parseInt(req.query.limit) || 24;
+    const { id } = req.body;
 
-    console.log(`📊 IoT Readings Request for user_id: ${userId}, limit: ${limit}`);
-
-    // Special case: user_id === 1 always allowed to fetch readings
-    if (userId !== 1) {
-      // Check if user's device is active (only for non-user_id=1)
-      const status = await dbHelpers.getIotStatusByUserId(userId);
-
-      if (!status || status.status !== 'active') {
-        console.log(`⚠️ Device not active for user_id: ${userId}, status: ${status?.status || 'none'}`);
-        return res.status(403).json({
-          message: 'Device not active. Sensor readings are only available when device status is "active".',
-          current_status: status?.status || 'inactive'
-        });
-      }
-    } else {
-      console.log('📌 Special case: user_id=1, skipping status check - fetching data directly');
+    if (!id) {
+      return res.status(400).json({ error: 'Missing request ID' });
     }
 
-    // Fetch real sensor data from ThingSpeak
-    const readings = await dbHelpers.fetchThingSpeakReadings(limit);
+    mockRequests = mockRequests.filter(r => r.id !== id);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error cancelling IoT request:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
-    console.log(`✅ Returning ${readings.length} readings from ThingSpeak`);
+// GET /api/iot/readings - Get sensor readings
+app.get('/api/iot/readings', (req, res) => {
+  try {
+    const since = req.query.since;
+    let readings = mockReadings;
+
+    if (since) {
+      const sinceDate = new Date(since);
+      readings = mockReadings.filter(r => new Date(r.timestamp) >= sinceDate);
+    }
 
     res.json(readings);
   } catch (error) {
-    console.error('❌ Error getting IoT readings:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error getting IoT readings:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-
-// ========== PROFILES / FARMER SEARCH ROUTES ==========
-
-// Get profiles (for vendor farmer search)
-app.get('/api/profiles', requireAuth, async (req, res) => {
+// GET /api/iot/alerts - Get farm alerts
+app.get('/api/iot/alerts', (req, res) => {
   try {
-    const { q } = req.query;
-    console.log(`🔍 Profiles search request: q="${q}"`);
-
-    const profiles = await dbHelpers.getProfiles({ q });
-    console.log(`✅ Found ${profiles.length} profiles`);
-
-    res.json(profiles);
+    res.json(mockAlerts);
   } catch (error) {
-    console.error('❌ Get profiles error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error getting IoT alerts:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// ========== EXPERTS ROUTES ==========
-
-// Get experts with search and filter
-app.get('/api/experts', requireAuth, async (req, res) => {
+// POST /api/iot/mark-installed - Mark sensor as installed (for testing)
+app.post('/api/iot/mark-installed', (req, res) => {
   try {
-    const { q, specialization, limit, offset } = req.query;
-    const rows = await dbHelpers.getExperts({
-      q,
-      specialization,
-      limit: limit || 100,
-      offset: offset || 0
-    });
+    const { id } = req.body;
 
-    // return parsed specialization as array
-    const mapped = rows.map(r => ({
-      ...r,
-      specializations: r.specializations ? JSON.parse(r.specializations) : []
-    }));
-
-    res.json({ data: mapped, count: mapped.length });
-  } catch (err) {
-    console.error('GET /api/experts error', err);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// ========== QR CODE ROUTES ==========
-
-// Parse QR code text
-app.post('/api/qr/parse', requireAuth, async (req, res) => {
-  try {
-    const { qr_text } = req.body;
-
-    if (!qr_text) {
-      return res.status(400).json({ message: 'QR text is required' });
+    if (!id) {
+      return res.status(400).json({ error: 'Missing request ID' });
     }
 
-    console.log('📱 QR scanned:', qr_text.substring(0, 100));
+    const request = mockRequests.find(r => r.id === id);
+    if (!request) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
 
-    // Return the QR text back for display
-    // Frontend will handle JSON pretty-printing if needed
-    res.json({ qr_text });
+    request.status = 'installed';
+    res.json(request);
   } catch (error) {
-    console.error('❌ QR parse error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error marking IoT as installed:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// ========== MARKET PRICES API PROXY ==========
-
-// In-memory cache for market prices
-const MARKET_CACHE = new Map();
-const MARKET_CACHE_TTL_MS = (parseInt(process.env.DATA_GOV_API_CACHE_TTL_SEC) || 300) * 1000;
-
-function getMarketCacheKey(query) {
-  return `${query.state || ''}|${query.district || ''}|${query.commodity || ''}|${query.offset || 0}|${query.limit || 50}`;
-}
-
-// GET /api/market-prices - Proxy to data.gov.in API
-app.get('/api/market-prices', async (req, res) => {
-  try {
-    const { state, district, commodity, offset = '0', limit = '50' } = req.query;
-
-    // Validate and parse parameters
-    const parsedOffset = Math.max(0, parseInt(offset) || 0);
-    const maxLimit = parseInt(process.env.DATA_GOV_API_MAX_LIMIT) || 1000;
-    const parsedLimit = Math.min(Math.max(1, parseInt(limit) || 50), maxLimit);
-
-    // Create cache key
-    const cacheKey = getMarketCacheKey({ state, district, commodity, offset: parsedOffset, limit: parsedLimit });
-
-    // Check cache
-    const cached = MARKET_CACHE.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < MARKET_CACHE_TTL_MS) {
-      console.log(`market-proxy: CACHE HIT for key=${cacheKey}`);
-      res.set('X-Cache', 'HIT');
-      return res.json(cached.data);
-    }
-
-    // Build upstream URL
-    const params = new URLSearchParams();
-    params.append('api-key', process.env.DATA_GOV_API_KEY);
-    params.append('format', 'json');
-    params.append('offset', String(parsedOffset));
-    params.append('limit', String(parsedLimit));
-
-    // Only add filters if they are NOT "All" values
-    if (state && state !== 'all' && state !== 'All States' && state !== 'All State') {
-      params.append('filters[state]', state);
-    }
-    if (district && district !== 'all' && district !== 'All Districts') {
-      params.append('filters[district]', district);
-    }
-    if (commodity && commodity !== 'all' && commodity !== 'All Crops' && commodity !== 'All commodities' && commodity !== 'All Commodity') {
-      params.append('filters[commodity]', commodity);
-    }
-
-    const upstreamUrl = `https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?${params.toString()}`;
-
-    // Log request (with redacted API key)
-    const logUrl = upstreamUrl.replace(process.env.DATA_GOV_API_KEY, '[REDACTED]');
-    console.log(`market-proxy: Fetching upstream url=${logUrl}`);
-
-    const startTime = Date.now();
-
-    // Make upstream request
-    const timeout = parseInt(process.env.DATA_GOV_API_TIMEOUT_MS) || 15000;
-    const upstreamResponse = await axios.get(upstreamUrl, {
-      timeout,
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
-
-    const elapsed = Date.now() - startTime;
-    console.log(`market-proxy: upstream ${upstreamResponse.status} in ${elapsed}ms`);
-
-    // Parse and normalize response
-    const rawData = upstreamResponse.data;
-    let records = [];
-
-    // data.gov.in returns data in records array
-    if (rawData && Array.isArray(rawData.records)) {
-      records = rawData.records;
-    } else if (Array.isArray(rawData)) {
-      records = rawData;
-    }
-
-    // Normalize data
-    const normalizedData = records.map(item => {
-      // Helper to parse price strings (remove commas, parse to int)
-      const parsePrice = (priceStr) => {
-        if (!priceStr) return null;
-        const cleaned = String(priceStr).replace(/,/g, '').trim();
-        const parsed = parseInt(cleaned, 10);
-        return isNaN(parsed) ? null : parsed;
-      };
-
-      return {
-        state: item.state || null,
-        district: item.district || null,
-        market: item.market || item.district || null,
-        commodity: item.commodity || null,
-        variety: item.variety || null,
-        min_price: parsePrice(item.min_price),
-        max_price: parsePrice(item.max_price),
-        modal_price: parsePrice(item.modal_price),
-        arrival_date: item.arrival_date || null
-      };
-    });
-
-    // Build response
-    const response = {
-      meta: {
-        offset: parsedOffset,
-        limit: parsedLimit,
-        count: normalizedData.length
-      },
-      data: normalizedData
-    };
-
-    // Cache the response
-    MARKET_CACHE.set(cacheKey, {
-      timestamp: Date.now(),
-      data: response
-    });
-    console.log(`market-proxy: CACHE MISS - cached for key=${cacheKey}`);
-
-    res.set('X-Cache', 'MISS');
-    return res.json(response);
-
-  } catch (error) {
-    console.error('market-proxy ERROR:', error.message);
-
-    // Handle specific error cases
-    if (error.response) {
-      const status = error.response.status;
-      const upstreamData = error.response.data;
-
-      console.error(`market-proxy: upstream error ${status}`, upstreamData);
-
-      // Rate limit error
-      if (status === 429) {
-        const retryAfter = error.response.headers['retry-after'] || 60;
-        res.set('Retry-After', String(retryAfter));
-        return res.status(503).json({
-          message: 'Upstream rate limit exceeded, please try again later',
-          retry_after: retryAfter
-        });
-      }
-
-      // Upstream server error
-      if (status >= 500) {
-        return res.status(502).json({
-          message: 'Upstream server error - market data temporarily unavailable'
-        });
-      }
-
-      // Other upstream errors (4xx)
-      return res.status(502).json({
-        message: 'Failed to fetch market data from upstream API'
-      });
-    }
-
-    // Timeout or network error
-    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      return res.status(504).json({
-        message: 'Request timeout - upstream API not responding'
-      });
-    }
-
-    // Generic error
-    console.error('market-proxy: unexpected error', error);
-    return res.status(500).json({
-      message: 'Internal server error fetching market data'
-    });
-  }
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ message: 'Internal server error' });
 });
 
 // ========== FORUM ROUTES ==========
@@ -1066,28 +861,80 @@ app.get('/api/forum/posts/:post_id/replies', async (req, res) => {
   }
 });
 
-// Helper function to generate category-specific answers
-function generateGenericAnswer(category, question) {
-  const answers = {
-    'Crop': `For crop-related queries, I recommend consulting with your local agriculture extension officer. Based on your region's climate and soil type, they can provide specific guidance. You can also use our crop disease detection feature for image-based analysis.`,
+// Ask a new question with smart matching
+app.post('/api/forum/ask', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { category, question } = req.body;
 
-    'Soil': `Soil health is crucial for good yields. I recommend getting a soil test done at your nearest soil testing laboratory. Based on the results, you can determine the right amendments needed. Regular addition of organic matter like FYM or compost helps improve soil structure and fertility.`,
+    if (!category || !question) {
+      return res.status(400).json({ message: 'Category and question are required' });
+    }
 
-    'Weather': `For accurate weather forecasts, please check our Weather section which provides 7-day forecasts. During extreme weather events, ensure proper drainage in fields and protect standing crops with appropriate measures. Local agriculture department can provide region-specific advisories.`,
+    // Extract keywords
+    const { extractKeywords } = require('./keywords');
+    const keywords = extractKeywords(question);
 
-    'Disease & Pests': `Early detection is key for pest and disease management. Try using our Crop Disease feature for image-based identification. For immediate action, consult with local plant protection experts. Always use recommended pesticides at proper dosages and follow safety guidelines.`,
+    // Insert new question
+    const result = await dbHelpers.createForumPost(userId, category, question, category, keywords);
 
-    'Market': `Market prices fluctuate based on demand, supply, and seasonal factors. Check daily rates on eNAM portal or local APMC markets. Avoid distress selling - store produce properly if prices are low. Consider joining Farmer Producer Organizations (FPOs) for better bargaining power.`,
+    // Find best matching post for recommendation
+    db.all(
+      `SELECT fp.*, p.full_name as user_name
+       FROM forum_posts fp
+       LEFT JOIN profiles p ON fp.user_id = p.id
+       WHERE fp.id != ? AND fp.community = ?
+       ORDER BY fp.upvotes DESC, fp.created_at DESC
+       LIMIT 3`,
+      [result.id, category],
+      (err, matches) => {
+        if (err) {
+          console.error('Find matches error:', err);
+        }
 
-    'Fertilizers': `Fertilizer application should be based on soil test results. Over-application can harm soil health and crops. Follow recommended NPK ratios for your crop. Split application is better than single dose. Consider using bio-fertilizers and organic manures to reduce chemical dependence.`,
+        // Get replies for matches
+        if (matches && matches.length > 0) {
+          const matchIds = matches.map(m => m.id);
+          db.all(
+            `SELECT * FROM forum_replies WHERE post_id IN (${matchIds.join(',')})`,
+            [],
+            (err, replies) => {
+              const recommended = matches.map(post => ({
+                ...post,
+                replies: replies ? replies.filter(r => r.post_id === post.id) : []
+              }));
 
-    'General Queries': `For general agricultural queries and government schemes, visit your local agriculture department office or Krishi Vigyan Kendra (KVK). They provide free advisory services, training programs, and information about subsidies. You can also call the Kisan Call Centre at 1800-180-1551 for expert advice.`
-  };
+              res.status(201).json({
+                id: result.id,
+                message: 'Question posted successfully',
+                keywords,
+                recommended: recommended[0] || null
+              });
+            }
+          );
+        } else {
+          res.status(201).json({
+            id: result.id,
+            message: 'Question posted successfully',
+            keywords,
+            recommended: null
+          });
+        }
+      }
+    );
+  } catch (error) {
+    console.error('Create forum question error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 
-  return answers[category] || `Thank you for your question. Our agricultural experts will review this and provide detailed guidance. In the meantime, you can explore our other features like Crop Disease Detection, Market Prices, and Weather Forecast for immediate assistance.`;
-}
+// Old endpoint for backwards compatibility
+app.get('/api/forum', requireAuth, async (req, res) => {
+  // Redirect to new endpoint
+  res.redirect('/api/forum/posts');
+});
 
-// Create forum post (with AUTO-ANSWER generation)
+// Create forum post (legacy endpoint) - NOW WITH AUTO-ANSWER
 app.post('/api/forum', requireAuth, async (req, res) => {
   try {
     const userId = req.session.userId;
@@ -1253,6 +1100,28 @@ app.post('/api/forum', requireAuth, async (req, res) => {
   }
 });
 
+// Helper function to generate category-specific answers
+function generateGenericAnswer(category, question) {
+  const answers = {
+    'Crop': `For crop-related queries, I recommend consulting with your local agriculture extension officer. Based on your region's climate and soil type, they can provide specific guidance. You can also use our crop disease detection feature for image-based analysis.`,
+
+    'Soil': `Soil health is crucial for good yields. I recommend getting a soil test done at your nearest soil testing laboratory. Based on the results, you can determine the right amendments needed. Regular addition of organic matter like FYM or compost helps improve soil structure and fertility.`,
+
+    'Weather': `For accurate weather forecasts, please check our Weather section which provides 7-day forecasts. During extreme weather events, ensure proper drainage in fields and protect standing crops with appropriate measures. Local agriculture department can provide region-specific advisories.`,
+
+    'Disease & Pests': `Early detection is key for pest and disease management. Try using our Crop Disease feature for image-based identification. For immediate action, consult with local plant protection experts. Always use recommended pesticides at proper dosages and follow safety guidelines.`,
+
+    'Market': `Market prices fluctuate based on demand, supply, and seasonal factors. Check daily rates on eNAM portal or local APMC markets. Avoid distress selling - store produce properly if prices are low. Consider joining Farmer Producer Organizations (FPOs) for better bargaining power.`,
+
+    'Fertilizers': `Fertilizer application should be based on soil test results. Over-application can harm soil health and crops. Follow recommended NPK ratios for your crop. Split application is better than single dose. Consider using bio-fertilizers and organic manures to reduce chemical dependence.`,
+
+    'General Queries': `For general agricultural queries and government schemes, visit your local agriculture department office or Krishi Vigyan Kendra (KVK). They provide free advisory services, training programs, and information about subsidies. You can also call the Kisan Call Centre at 1800-180-1551 for expert advice.`
+  };
+
+  return answers[category] || `Thank you for your question. Our agricultural experts will review this and provide detailed guidance. In the meantime, you can explore our other features like Crop Disease Detection, Market Prices, and Weather Forecast for immediate assistance.`;
+}
+
+
 // Create forum reply
 app.post('/api/forum/reply', requireAuth, async (req, res) => {
   try {
@@ -1295,6 +1164,21 @@ app.post('/api/forum/upvote', requireAuth, async (req, res) => {
   }
 });
 
+// ========== INTELLIGENT FARMER FORUM ROUTES (New Q&A System) ==========
+
+const { extractKeywords } = require('./keywords');
+
+// Get all farmer forum posts
+app.get('/api/farmer-forum/posts', requireAuth, async (req, res) => {
+  try {
+    const posts = await dbHelpers.getFarmerForumPosts();
+    res.json(posts);
+  } catch (error) {
+    console.error('Get farmer forum posts error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Search farmer forum with keyword extraction and intelligent matching
 app.get('/api/farmer-forum/search', requireAuth, async (req, res) => {
   try {
@@ -1305,7 +1189,6 @@ app.get('/api/farmer-forum/search', requireAuth, async (req, res) => {
     }
 
     // Extract keywords from the question
-    const { extractKeywords } = require('./keywords');
     const keywords = extractKeywords(question);
     console.log(`Extracted keywords from "${question}": ${keywords}`);
 
@@ -1331,10 +1214,75 @@ app.get('/api/farmer-forum/search', requireAuth, async (req, res) => {
   }
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ message: 'Internal server error' });
+// Create new farmer forum question
+app.post('/api/farmer-forum/question', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { question, community } = req.body;
+
+    if (!question || !community) {
+      return res.status(400).json({ message: 'Question and community are required' });
+    }
+
+    // Extract keywords
+    const keywords = extractKeywords(question);
+
+    // Create the question
+    const result = await dbHelpers.createFarmerForumQuestion(question, keywords, community, userId);
+
+    res.status(201).json({
+      id: result.id,
+      message: 'Question posted successfully',
+      extractedKeywords: keywords
+    });
+  } catch (error) {
+    console.error('Create farmer forum question error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Toggle upvote on farmer forum post
+app.post('/api/farmer-forum/upvote', requireAuth, async (req, res) => {
+  try {
+    const { postId, action } = req.body;
+
+    if (!postId || !action) {
+      return res.status(400).json({ message: 'Post ID and action are required' });
+    }
+
+    let result;
+    if (action === 'increment') {
+      result = await dbHelpers.incrementForumUpvotes(postId);
+    } else if (action === 'decrement') {
+      result = await dbHelpers.decrementForumUpvotes(postId);
+    } else {
+      return res.status(400).json({ message: 'Invalid action. Use "increment" or "decrement"' });
+    }
+
+    res.json({ upvotes: result.upvotes });
+  } catch (error) {
+    console.error('Upvote farmer forum post error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Add reply to farmer forum post (increments reply count)
+app.post('/api/farmer-forum/reply', requireAuth, async (req, res) => {
+  try {
+    const { postId } = req.body;
+
+    if (!postId) {
+      return res.status(400).json({ message: 'Post ID is required' });
+    }
+
+    // Increment the reply count
+    await dbHelpers.incrementForumReplies(postId);
+
+    res.json({ message: 'Reply added successfully' });
+  } catch (error) {
+    console.error('Add farmer forum reply error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
 });
 
 // 404 handler

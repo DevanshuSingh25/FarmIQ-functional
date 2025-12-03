@@ -23,13 +23,13 @@ import QRGeneration from "./pages/QRGeneration";
 import IoTSensor from "./pages/IoTSensor";
 import Profile from "./pages/Profile";
 import VendorDashboard from "./pages/VendorDashboard";
-import VendorQRScan from "./pages/vendor/qr-scan";
-import VendorFarmerSearch from "./pages/vendor/farmer-search";
-import VendorMarketPrices from "./pages/vendor/market-prices";
+import VendorQRScan from "./pages/VendorQRScan";
+import VendorMarketPrices from "./pages/VendorMarketPrices";
+import VendorFarmerSearch from "./pages/VendorFarmerSearch";
 import AdminDashboard from "./pages/AdminDashboard";
-import Consultancy from "./pages/farmer/Consultancy";
-import FarmerForum from "./pages/FarmerForum";
 import NotFound from "./pages/NotFound";
+import FarmerForum from "./pages/FarmerForum";
+import ExpertsConsultancy from "./pages/ExpertsConsultancy";
 
 const queryClient = new QueryClient();
 
@@ -75,18 +75,18 @@ const App = () => (
                 }
               />
               <Route
-                path="/vendor/farmer-search"
-                element={
-                  <ProtectedRoute requiredRole="vendor">
-                    <VendorFarmerSearch />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/vendor/market-prices"
                 element={
                   <ProtectedRoute requiredRole="vendor">
                     <VendorMarketPrices />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/vendor/farmer-search"
+                element={
+                  <ProtectedRoute requiredRole="vendor">
+                    <VendorFarmerSearch />
                   </ProtectedRoute>
                 }
               />
@@ -157,18 +157,18 @@ const App = () => (
                 }
               />
               <Route
-                path="/farmer/consultancy"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <Consultancy />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/farmer/forum"
                 element={
                   <ProtectedRoute requiredRole="farmer">
                     <FarmerForum />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/farmer/consultancy"
+                element={
+                  <ProtectedRoute requiredRole="farmer">
+                    <ExpertsConsultancy />
                   </ProtectedRoute>
                 }
               />

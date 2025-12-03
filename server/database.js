@@ -732,6 +732,240 @@ const dbHelpers = {
         resolve(rows || []);
       });
     });
+  },
+
+  // ========== FORUM HELPERS ==========
+
+  // Get all forum posts with replies
+  getForumPosts: () => {
+    return new Promise((resolve, reject) => {
+      // First get all posts
+      db.all(
+        `SELECT fp.id, fp.user_id, fp.category, fp.community, fp.question, fp.extracted_keywords,
+                fp.status, fp.upvotes, fp.reply_count, fp.created_at, p.full_name as user_name
+         FROM forum_posts fp
+         LEFT JOIN profiles p ON fp.user_id = p.id
+         ORDER BY fp.created_at DESC`,
+        [],
+        (err, posts) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          if (!posts || posts.length === 0) {
+            resolve([]);
+            return;
+          }
+
+          // Then get all replies
+          db.all(
+            `SELECT * FROM forum_replies ORDER BY created_at ASC`,
+            [],
+            (err, replies) => {
+              if (err) {
+                reject(err);
+                return;
+              }
+
+              // Map replies to posts
+              const postsWithReplies = posts.map(post => {
+                return {
+                  ...post,
+                  replies: replies.filter(reply => reply.post_id === post.id)
+                };
+              });
+
+              resolve(postsWithReplies);
+            }
+          );
+        }
+      );
+    });
+  },
+
+  // Create forum post
+  createForumPost: (userId, category, question, community, extractedKeywords) => {
+    return new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO forum_posts (user_id, category, community, question, extracted_keywords, status, upvotes, reply_count) 
+         VALUES (?, ?, ?, ?, ?, 'Unanswered', 0, 0)`,
+        [userId, category, community || category, question, extractedKeywords || ''],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({ id: this.lastID });
+        }
+      );
+    });
+  },
+
+  // Create forum reply
+  createForumReply: (postId, replyText, repliedBy) => {
+    return new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO forum_replies (post_id, reply_text, replied_by, upvotes) VALUES (?, ?, ?, 0)`,
+        [postId, replyText, repliedBy],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          // Increment reply_count in forum_posts
+          db.run(
+            `UPDATE forum_posts SET reply_count = reply_count + 1 WHERE id = ?`,
+            [postId],
+            (updateErr) => {
+              if (updateErr) console.error('Error updating reply_count:', updateErr);
+            }
+          );
+
+          resolve({ id: this.lastID });
+        }
+      );
+    });
+  },
+
+  // Increment post upvotes
+  incrementPostUpvotes: (postId) => {
+    return new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE forum_posts SET upvotes = upvotes + 1 WHERE id = ?`,
+        [postId],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          // Get updated count
+          db.get(`SELECT upvotes FROM forum_posts WHERE id = ?`, [postId], (err, row) => {
+            if (err) reject(err);
+            else resolve({ upvotes: row?.upvotes || 0 });
+          });
+        }
+      );
+    });
+  },
+
+  // Decrement post upvotes
+  decrementPostUpvotes: (postId) => {
+    return new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE forum_posts SET upvotes = upvotes - 1 WHERE id = ?`,
+        [postId],
+        function (err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          // Get updated count
+          db.get(`SELECT upvotes FROM forum_posts WHERE id = ?`, [postId], (err, row) => {
+            if (err) reject(err);
+            else resolve({ upvotes: row?.upvotes || 0 });
+          });
+        }
+      );
+    });
+  },
+
+  // ========== FARMER FORUM HELPERS (Intelligent Q&A System) ==========
+
+  // Get all farmer forum posts
+  getFarmerForumPosts: () => {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM farmer_forum ORDER BY created_at DESC`,
+        [],
+        (err, rows) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows || []);
+        }
+      );
+    });
+  },
+
+  // Search farmer forum by keywords and community with intelligent ranking
+  searchFarmerForumByKeywords: (keywords, community) => {
+    return new Promise((resolve, reject) => {
+      // Build the query to match keywords and community
+      const keywordArray = keywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
+
+      if (keywordArray.length === 0) {
+        // No keywords, just filter by community if provided
+        const query = community
+          ? `SELECT * FROM farmer_forum WHERE community = ? ORDER BY created_at DESC LIMIT 10`
+          : `SELECT * FROM farmer_forum ORDER BY created_at DESC LIMIT 10`;
+        const params = community ? [community] : [];
+
+        db.all(query, params, (err, rows) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows || []);
+        });
+        return;
+      }
+
+      // Get all posts from the specified community (or all if no community)
+      const query = community
+        ? `SELECT * FROM farmer_forum WHERE community = ?`
+        : `SELECT * FROM farmer_forum`;
+      const params = community ? [community] : [];
+
+      db.all(query, params, (err, rows) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        if (!rows || rows.length === 0) {
+          resolve([]);
+          return;
+        }
+
+        // Rank posts by keyword matching
+        const rankedPosts = rows.map(post => {
+          const postKeywords = (post.highlighted_keywords || '').toLowerCase();
+          const postQuestion = (post.question || '').toLowerCase();
+          const postAnswer = (post.answer || '').toLowerCase();
+
+          let matchScore = 0;
+          keywordArray.forEach(keyword => {
+            if (postKeywords.includes(keyword)) matchScore += 3; // Keywords match is most important
+            if (postQuestion.includes(keyword)) matchScore += 2;
+            if (postAnswer.includes(keyword)) matchScore += 1;
+          });
+
+          return {
+            ...post,
+            matchScore
+          };
+        });
+
+        // Sort by match score (descending), then by recency
+        rankedPosts.sort((a, b) => {
+          if (b.matchScore !== a.matchScore) {
+            return b.matchScore - a.matchScore;
+          }
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+
+        // Return top 10 results
+        const topResults = rankedPosts.slice(0, 10);
+
+        // Remove matchScore before returning
+        const cleanResults = topResults.map(({ matchScore, ...post }) => post);
+
+        resolve(cleanResults);
+      });
+    });
   }
 };
 
