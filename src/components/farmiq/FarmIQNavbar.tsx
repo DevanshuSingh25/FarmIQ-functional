@@ -30,7 +30,8 @@ import {
   TrendingUp,
   Cpu,
   Home,
-  ArrowLeft
+  ArrowLeft,
+  Brain
 } from "lucide-react";
 
 interface FarmIQNavbarProps {
@@ -53,6 +54,7 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
     { label: 'Market', href: '/market-prices' },
     { label: 'IoT', href: '/farmer/iot' },
     { label: 'Consultancy', href: '/farmer/consultancy' },
+    { label: 'EdgeAI', href: 'https://translationchatbotfinal.onrender.com/', external: true },
   ];
 
   const menuItems = [
@@ -62,7 +64,8 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
     { label: "Weather", icon: CloudRain, to: "/farmer/weather" },
     { label: "Market data", icon: TrendingUp, to: "/market-prices" },
     { label: "IoT Sensor", icon: Cpu, to: "/farmer/iot" },
-    { label: "Consultancy", icon: UserCircle, to: "/farmer/consultancy" }
+    { label: "Consultancy", icon: UserCircle, to: "/farmer/consultancy" },
+    { label: "EdgeAI", icon: Brain, to: "https://translationchatbotfinal.onrender.com/", external: true }
   ];
 
   const languages = ['English', 'Hindi', 'Punjabi'] as const;
@@ -99,7 +102,13 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
                           key={item.to}
                           variant={active ? "default" : "ghost"}
                           className="w-full justify-between"
-                          onClick={() => navigate(item.to)}
+                          onClick={() => {
+                            if (item.external) {
+                              window.open(item.to, '_blank', 'noopener,noreferrer');
+                            } else {
+                              navigate(item.to);
+                            }
+                          }}
                         >
                           <span className="flex items-center gap-3">
                             <Icon className="h-4 w-4" />
@@ -136,7 +145,9 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
                 key={link.label}
                 onClick={() => {
                   setActiveLink(link.href);
-                  if (link.href.startsWith('/')) {
+                  if (link.external) {
+                    window.open(link.href, '_blank', 'noopener,noreferrer');
+                  } else if (link.href.startsWith('/')) {
                     navigate(link.href);
                   }
                 }}

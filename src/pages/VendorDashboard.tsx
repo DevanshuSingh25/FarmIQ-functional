@@ -22,7 +22,8 @@ import {
   QrCode,
   ChevronRight,
   MessageCircle,
-  Phone
+  Phone,
+  Brain
 } from 'lucide-react';
 import {
   Sheet,
@@ -93,6 +94,14 @@ export default function VendorDashboard() {
                       </div>
                       <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-yellow-700 transition-colors" />
                     </Link>
+
+                    <a href="https://translationchatbotfinal.onrender.com/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-3 bg-white text-gray-700 hover:bg-purple-50 hover:text-purple-900 rounded-full transition-all group shadow-sm border border-transparent hover:border-purple-100">
+                      <div className="flex items-center gap-3">
+                        <Brain className="h-5 w-5 text-gray-500 group-hover:text-purple-700 transition-colors" />
+                        <span className="font-medium text-sm">EdgeAI</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-purple-700 transition-colors" />
+                    </a>
                   </div>
                 </SheetContent>
               </Sheet>
@@ -118,6 +127,9 @@ export default function VendorDashboard() {
               <Link to="/vendor/farmer-search" className="text-gray-500 hover:text-gray-900 font-medium px-1 py-5 transition-colors">
                 Farmer Search
               </Link>
+              <a href="https://translationchatbotfinal.onrender.com/" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-gray-900 font-medium px-1 py-5 transition-colors">
+                EdgeAI
+              </a>
             </div>
 
             {/* Right Side Icons */}
