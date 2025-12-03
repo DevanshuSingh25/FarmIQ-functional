@@ -1331,6 +1331,334 @@ app.get('/api/farmer-forum/search', requireAuth, async (req, res) => {
   }
 });
 
+// ========== ADMIN MANAGEMENT ROUTES ==========
+
+// Admin middleware to check admin role
+const requireAdmin = (req, res, next) => {
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+  if (req.session.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+};
+
+// ===== ADMIN USER/PROFILE MANAGEMENT =====
+
+// Get all users with profiles
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  try {
+    db.all(
+      `SELECT u.id, u.email, u.role, u.phone, u.created_at,
+              p.full_name, p.phone_number, p.location, p.crops_grown, 
+              p.available_quantity, p.expected_price
+       FROM users u
+       LEFT JOIN profiles p ON u.id = p.id
+       ORDER BY u.created_at DESC`,
+      [],
+      (err, users) => {
+        if (err) {
+          console.error('Get users error:', err);
+          return res.status(500).json({ message: 'Database error' });
+        }
+        res.json(users || []);
+      }
+    );
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get specific user
+app.get('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    db.get(
+      `SELECT u.*, p.full_name, p.phone_number, p.location, p.crops_grown,
+              p.available_quantity, p.expected_price
+       FROM users u
+       LEFT JOIN profiles p ON u.id = p.id
+       WHERE u.id = ?`,
+      [userId],
+      (err, user) => {
+        if (err) {
+          return res.status(500).json({ message: 'Database error' });
+        }
+        if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+        }
+        res.json(user);
+      }
+    );
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update user and profile
+app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { email, role, phone, full_name, phone_number, location, crops_grown, available_quantity, expected_price } = req.body;
+
+    // Update users table
+    db.run(
+      `UPDATE users SET email = ?, role = ?, phone = ?, updated_at = datetime('now')
+       WHERE id = ?`,
+      [email, role, phone, userId],
+      function (err) {
+        if (err) {
+          console.error('Update user error:', err);
+          return res.status(500).json({ message: 'Failed to update user' });
+        }
+
+        // Update profiles table
+        db.run(
+          `UPDATE profiles 
+           SET full_name = ?, phone_number = ?, location = ?, crops_grown = ?,
+               available_quantity = ?, expected_price = ?, updated_at = datetime('now')
+           WHERE id = ?`,
+          [full_name, phone_number, location, crops_grown, available_quantity, expected_price, userId],
+          function (profileErr) {
+            if (profileErr) {
+              console.error('Update profile error:', profileErr);
+            }
+            res.json({ message: 'User updated successfully' });
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete user
+app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    db.run('DELETE FROM users WHERE id = ?', [userId], function (err) {
+      if (err) {
+        console.error('Delete user error:', err);
+        return res.status(500).json({ message: 'Failed to delete user' });
+      }
+      res.json({ message: 'User deleted successfully' });
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Reset user password
+app.post('/api/admin/users/:id/reset-password', requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    db.run(
+      `UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`,
+      [hashedPassword, userId],
+      function (err) {
+        if (err) {
+          console.error('Reset password error:', err);
+          return res.status(500).json({ message: 'Failed to reset password' });
+        }
+        res.json({ message: 'Password reset successfully' });
+      }
+    );
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// ===== ADMIN LAB MANAGEMENT =====
+
+// Get all labs
+app.get('/api/admin/labs', requireAdmin, async (req, res) => {
+  try {
+    const labs = await dbHelpers.getSoilLabs();
+    res.json(labs);
+  } catch (error) {
+    console.error('Get labs error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Create lab
+app.post('/api/admin/labs', requireAdmin, async (req, res) => {
+  try {
+    const result = await dbHelpers.createSoilLab(req.body);
+    res.status(201).json({ id: result.id, message: 'Lab created successfully' });
+  } catch (error) {
+    console.error('Create lab error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update lab
+app.put('/api/admin/labs/:id', requireAdmin, async (req, res) => {
+  try {
+    const labId = parseInt(req.params.id);
+    await dbHelpers.updateSoilLab(labId, req.body);
+    res.json({ message: 'Lab updated successfully' });
+  } catch (error) {
+    console.error('Update lab error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete lab
+app.delete('/api/admin/labs/:id', requireAdmin, async (req, res) => {
+  try {
+    const labId = parseInt(req.params.id);
+    await dbHelpers.deleteSoilLab(labId);
+    res.json({ message: 'Lab deleted successfully' });
+  } catch (error) {
+    console.error('Delete lab error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// ===== ADMIN SCHEME MANAGEMENT =====
+
+// Get all schemes
+app.get('/api/admin/schemes', requireAdmin, async (req, res) => {
+  try {
+    const schemes = await dbHelpers.getNgoSchemes();
+    res.json(schemes);
+  } catch (error) {
+    console.error('Get schemes error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Create scheme
+app.post('/api/admin/schemes', requireAdmin, async (req, res) => {
+  try {
+    const result = await dbHelpers.createNgoScheme(req.body);
+    res.status(201).json({ id: result.id, message: 'Scheme created successfully' });
+  } catch (error) {
+    console.error('Create scheme error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update scheme
+app.put('/api/admin/schemes/:id', requireAdmin, async (req, res) => {
+  try {
+    const schemeId = parseInt(req.params.id);
+    await dbHelpers.updateNgoScheme(schemeId, req.body);
+    res.json({ message: 'Scheme updated successfully' });
+  } catch (error) {
+    console.error('Update scheme error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete scheme
+app.delete('/api/admin/schemes/:id', requireAdmin, async (req, res) => {
+  try {
+    const schemeId = parseInt(req.params.id);
+    await dbHelpers.deleteNgoScheme(schemeId);
+    res.json({ message: 'Scheme deleted successfully' });
+  } catch (error) {
+    console.error('Delete scheme error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// ===== ADMIN EXPERT MANAGEMENT =====
+
+// Get all experts
+app.get('/api/admin/experts', requireAdmin, async (req, res) => {
+  try {
+    const experts = await dbHelpers.getExperts({ limit: 100, offset: 0 });
+    res.json(experts);
+  } catch (error) {
+    console.error('Get experts error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Create expert
+app.post('/api/admin/experts', requireAdmin, async (req, res) => {
+  try {
+    const { name, experience_years, specializations, phone_number } = req.body;
+
+    db.run(
+      `INSERT INTO experts_info (name, experience_years, specializations, phone_number, rating, consultation_count)
+       VALUES (?, ?, ?, ?, 0.0, 0)`,
+      [name, experience_years || 0, specializations || '', phone_number || ''],
+      function (err) {
+        if (err) {
+          console.error('Create expert error:', err);
+          return res.status(500).json({ message: 'Failed to create expert' });
+        }
+        res.status(201).json({ id: this.lastID, message: 'Expert created successfully' });
+      }
+    );
+  } catch (error) {
+    console.error('Create expert error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update expert
+app.put('/api/admin/experts/:id', requireAdmin, async (req, res) => {
+  try {
+    const expertId = parseInt(req.params.id);
+    const { name, experience_years, specializations, phone_number, rating } = req.body;
+
+    db.run(
+      `UPDATE experts_info 
+       SET name = ?, experience_years = ?, specializations = ?, phone_number = ?, 
+           rating = ?, updated_at = datetime('now')
+       WHERE id = ?`,
+      [name, experience_years, specializations, phone_number, rating || 0, expertId],
+      function (err) {
+        if (err) {
+          console.error('Update expert error:', err);
+          return res.status(500).json({ message: 'Failed to update expert' });
+        }
+        res.json({ message: 'Expert updated successfully' });
+      }
+    );
+  } catch (error) {
+    console.error('Update expert error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete expert
+app.delete('/api/admin/experts/:id', requireAdmin, async (req, res) => {
+  try {
+    const expertId = parseInt(req.params.id);
+
+    db.run('DELETE FROM experts_info WHERE id = ?', [expertId], function (err) {
+      if (err) {
+        console.error('Delete expert error:', err);
+        return res.status(500).json({ message: 'Failed to delete expert' });
+      }
+      res.json({ message: 'Expert deleted successfully' });
+    });
+  } catch (error) {
+    console.error('Delete expert error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
