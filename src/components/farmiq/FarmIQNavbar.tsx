@@ -4,18 +4,18 @@ import { getTranslation, getCurrentLanguage } from "@/lib/translations";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { 
-  User, 
-  Sun, 
-  Moon, 
-  Globe, 
+import {
+  User,
+  Sun,
+  Moon,
+  Globe,
   ChevronDown,
   UserCircle,
   History,
@@ -52,6 +52,7 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
     { label: 'Crop', href: '/farmer/crop-disease' },
     { label: 'Market', href: '/market-prices' },
     { label: 'IoT', href: '/farmer/iot' },
+    { label: 'Consultancy', href: '/farmer/consultancy' },
   ];
 
   const menuItems = [
@@ -60,7 +61,8 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
     { label: "Crop disease", icon: Bug, to: "/farmer/crop-disease" },
     { label: "Weather", icon: CloudRain, to: "/farmer/weather" },
     { label: "Market data", icon: TrendingUp, to: "/market-prices" },
-    { label: "IoT Sensor", icon: Cpu, to: "/farmer/iot" }
+    { label: "IoT Sensor", icon: Cpu, to: "/farmer/iot" },
+    { label: "Consultancy", icon: UserCircle, to: "/farmer/consultancy" }
   ];
 
   const languages = ['English', 'Hindi', 'Punjabi'] as const;
@@ -119,9 +121,9 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
                 className="text-2xl font-bold text-primary hover:text-primary/80 transition-colors cursor-pointer"
               >
                 FarmIQ <span className="text-lg font-normal text-muted-foreground ml-3">
-                  {user?.role === 'farmer' ? 'Farmer' : 
-                   user?.role === 'vendor' ? 'Vendor' : 
-                   user?.role === 'admin' ? 'Admin' : 'User'} dashboard
+                  {user?.role === 'farmer' ? 'Farmer' :
+                    user?.role === 'vendor' ? 'Vendor' :
+                      user?.role === 'admin' ? 'Admin' : 'User'} dashboard
                 </span>
               </button>
             </div>
@@ -138,9 +140,8 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
                     navigate(link.href);
                   }
                 }}
-                className={`relative text-foreground hover:text-primary transition-smooth font-medium ${
-                  activeLink === link.href ? 'text-primary' : ''
-                } after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-primary after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left`}
+                className={`relative text-foreground hover:text-primary transition-smooth font-medium ${activeLink === link.href ? 'text-primary' : ''
+                  } after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-primary after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left`}
               >
                 {link.label}
               </button>
@@ -171,14 +172,14 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
             </DropdownMenu>
 
             {/* Theme Switcher */}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-9 w-9 p-0" 
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 w-9 p-0"
               onClick={onThemeToggle}
             >
-              {theme === 'light' ? 
-                <Moon className="h-4 w-4" /> : 
+              {theme === 'light' ?
+                <Moon className="h-4 w-4" /> :
                 <Sun className="h-4 w-4" />
               }
             </Button>
@@ -191,7 +192,7 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-popover border border-border shadow-medium">
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="cursor-pointer hover:bg-muted"
                   onClick={() => navigate('/farmer/qr/generate')}
                   role="menuitem"
@@ -209,28 +210,28 @@ export function FarmIQNavbar({ theme, language, onThemeToggle, onLanguageChange 
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 bg-popover border border-border shadow-medium">
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="cursor-pointer hover:bg-muted py-3"
                   onClick={() => navigate('/profile')}
                 >
                   <UserCircle className="mr-3 h-4 w-4" />
                   Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="cursor-pointer hover:bg-muted py-3"
                   onClick={() => navigate('/yield-prediction')}
                 >
                   <History className="mr-3 h-4 w-4" />
                   Crop history
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="cursor-pointer hover:bg-muted py-3"
                   onClick={() => navigate('/farmer/teaching')}
                 >
                   <Info className="mr-3 h-4 w-4" />
                   Know about the website
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="cursor-pointer hover:bg-muted py-3 text-destructive"
                   onClick={async () => {
                     await logout();

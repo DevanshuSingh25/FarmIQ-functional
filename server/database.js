@@ -681,6 +681,37 @@ const dbHelpers = {
     }
 
     return readings;
+  },
+
+  // ========== EXPERTS HELPERS ==========
+
+  // Get experts with search and filter
+  getExperts: ({ q, specialization, limit = 20, offset = 0 }) => {
+    return new Promise((resolve, reject) => {
+      let where = [];
+      let params = [];
+
+      if (q) {
+        where.push("(name LIKE ? OR specializations LIKE ?)");
+        params.push(`%${q}%`, `%${q}%`);
+      }
+      if (specialization) {
+        where.push("specializations LIKE ?");
+        params.push(`%${specialization}%`);
+      }
+
+      let whereSQL = where.length ? "WHERE " + where.join(" AND ") : "";
+      const sql = `SELECT id, name, experience_years, specializations, rating, consultation_count, phone_number FROM experts_info ${whereSQL} ORDER BY rating DESC LIMIT ? OFFSET ?`;
+      params.push(Number(limit), Number(offset));
+
+      db.all(sql, params, (err, rows) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(rows || []);
+      });
+    });
   }
 };
 

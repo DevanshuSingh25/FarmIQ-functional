@@ -27,6 +27,7 @@ import VendorQRScan from "./pages/vendor/qr-scan";
 import VendorFarmerSearch from "./pages/vendor/farmer-search";
 import VendorMarketPrices from "./pages/vendor/market-prices";
 import AdminDashboard from "./pages/AdminDashboard";
+import Consultancy from "./pages/farmer/Consultancy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -151,6 +152,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredRole="farmer">
                     <IoTSensor />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/farmer/consultancy"
+                element={
+                  <ProtectedRoute requiredRole="farmer">
+                    <Consultancy />
                   </ProtectedRoute>
                 }
               />

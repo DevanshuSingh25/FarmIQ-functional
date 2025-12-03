@@ -757,6 +757,32 @@ app.get('/api/profiles', requireAuth, async (req, res) => {
   }
 });
 
+// ========== EXPERTS ROUTES ==========
+
+// Get experts with search and filter
+app.get('/api/experts', requireAuth, async (req, res) => {
+  try {
+    const { q, specialization, limit, offset } = req.query;
+    const rows = await dbHelpers.getExperts({
+      q,
+      specialization,
+      limit: limit || 100,
+      offset: offset || 0
+    });
+
+    // return parsed specialization as array
+    const mapped = rows.map(r => ({
+      ...r,
+      specializations: r.specializations ? JSON.parse(r.specializations) : []
+    }));
+
+    res.json({ data: mapped, count: mapped.length });
+  } catch (err) {
+    console.error('GET /api/experts error', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // ========== QR CODE ROUTES ==========
 
 // Parse QR code text
