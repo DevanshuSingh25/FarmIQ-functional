@@ -577,14 +577,14 @@ app.get('/api/iot/status/:user_id', requireAuth, async (req, res) => {
 
     console.log(`🔍 IoT Status Request for user_id: ${userId}`);
 
-    // Special case: user_id === 1 always returns 'booked'
+    // Special case: user_id === 1 always returns 'active'
     if (userId === 1) {
-      console.log('📌 Special case: user_id=1, returning booked status');
+      console.log('📌 Special case: user_id=1, returning active status');
       return res.json({
         user_id: userId,
-        status: 'booked',
+        status: 'active',
         updated_at: new Date().toISOString(),
-        note: 'Auto-booked for user ID 1'
+        note: 'Auto-activated for user ID 1'
       });
     }
 
@@ -715,21 +715,26 @@ app.get('/api/iot/readings/:user_id', requireAuth, async (req, res) => {
 
     console.log(`📊 IoT Readings Request for user_id: ${userId}, limit: ${limit}`);
 
-    // Check if user's device is active
-    const status = await dbHelpers.getIotStatusByUserId(userId);
+    // Special case: user_id === 1 always allowed to fetch readings
+    if (userId !== 1) {
+      // Check if user's device is active (only for non-user_id=1)
+      const status = await dbHelpers.getIotStatusByUserId(userId);
 
-    if (!status || status.status !== 'active') {
-      console.log(`⚠️ Device not active for user_id: ${userId}, status: ${status?.status || 'none'}`);
-      return res.status(403).json({
-        message: 'Device not active. Sensor readings are only available when device status is "active".',
-        current_status: status?.status || 'inactive'
-      });
+      if (!status || status.status !== 'active') {
+        console.log(`⚠️ Device not active for user_id: ${userId}, status: ${status?.status || 'none'}`);
+        return res.status(403).json({
+          message: 'Device not active. Sensor readings are only available when device status is "active".',
+          current_status: status?.status || 'inactive'
+        });
+      }
+    } else {
+      console.log('📌 Special case: user_id=1, skipping status check - fetching data directly');
     }
 
-    // Generate mock readings
-    const readings = dbHelpers.generateMockReadings(limit);
+    // Fetch real sensor data from ThingSpeak
+    const readings = await dbHelpers.fetchThingSpeakReadings(limit);
 
-    console.log(`✅ Returning ${readings.length} mock readings`);
+    console.log(`✅ Returning ${readings.length} readings from ThingSpeak`);
 
     res.json(readings);
   } catch (error) {

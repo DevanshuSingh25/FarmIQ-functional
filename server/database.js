@@ -664,23 +664,43 @@ const dbHelpers = {
     });
   },
 
-  // Generate mock sensor readings
-  generateMockReadings: (limit = 24) => {
-    const readings = [];
-    const now = new Date();
+  // Fetch sensor readings from ThingSpeak
+  fetchThingSpeakReadings: async (limit = 24) => {
+    const axios = require('axios');
+    const THINGSPEAK_API_KEY = 'OTIJXUV8A9RZ1VVC'; // Read API Key
+    const CHANNEL_ID = '3189406'; // Correct Channel ID from user's ThingSpeak setup
 
-    for (let i = limit - 1; i >= 0; i--) {
-      const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
-      readings.push({
-        timestamp: timestamp.toISOString(),
-        temperature: Math.round((28 + Math.sin(i / 4) * 5 + Math.random() * 2) * 10) / 10,
-        humidity: Math.round((65 + Math.cos(i / 3) * 10 + Math.random() * 5)),
-        soil_moisture: Math.round((45 + Math.sin(i / 2) * 15 + Math.random() * 10)),
-        light_level: i >= 6 && i <= 18 ? (Math.random() > 0.5 ? 'High' : 'Medium') : 'Low'
-      });
+    try {
+      // ThingSpeak API endpoint to get channel feeds
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${THINGSPEAK_API_KEY}&results=${limit}`;
+
+      const response = await axios.get(url, { timeout: 10000 });
+
+      if (!response.data || !response.data.feeds) {
+        console.warn('No data from ThingSpeak, returning empty array');
+        return [];
+      }
+
+      // Transform ThingSpeak data to our format
+      const readings = response.data.feeds.map(feed => ({
+        timestamp: feed.created_at,
+        temperature: parseFloat(feed.field1) || 0,  // Field 1: Temperature
+        humidity: parseFloat(feed.field2) || 0,      // Field 2: Humidity
+        soil_moisture: parseFloat(feed.field3) || 0  // Field 3: Soil Moisture
+      }));
+
+      // Reverse array so newest data is first
+      readings.reverse();
+
+      const latestTimestamp = readings[0]?.timestamp || 'none';
+      console.log(`✅ Fetched ${readings.length} readings from ThingSpeak (latest: ${latestTimestamp})`);
+      return readings;
+
+    } catch (error) {
+      console.error('❌ Error fetching ThingSpeak data:', error.message);
+      // Return empty array on error (NO MOCK DATA)
+      return [];
     }
-
-    return readings;
   },
 
   // ========== EXPERTS HELPERS ==========

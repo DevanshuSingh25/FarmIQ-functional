@@ -30,7 +30,6 @@ export interface Reading {
   temperature: number;
   humidity: number;
   soil_moisture: number;
-  light_level: 'Low' | 'Medium' | 'High';
 }
 
 class IoTService {

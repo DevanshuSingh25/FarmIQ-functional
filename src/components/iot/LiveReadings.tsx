@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { RefreshCw, Thermometer, Droplets, Sun, Eye, AlertTriangle, Wifi, WifiOff, Settings } from 'lucide-react';
-import { iotService, Reading, Alert } from '@/services/iotService';
+import { RefreshCw, Thermometer, Droplets, Eye, AlertTriangle, Wifi, WifiOff, Settings } from 'lucide-react';
+import { iotService, Reading } from '@/services/iotService';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LiveReadingsProps {
   isInstalled: boolean;
@@ -15,30 +16,44 @@ interface LiveReadingsProps {
 
 export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [readings, setReadings] = useState<Reading[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [bookingStatus, setBookingStatus] = useState<string | null>(null);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(true);
   const [settings, setSettings] = useState({
     temperatureUnit: 'C' as 'C' | 'F',
     dailySummary: true,
     alerts: true,
   });
 
-  // Load readings and alerts
+  // Check booking status from iot_reading table
+  const checkBookingStatus = async () => {
+    if (!user?.id) return;
+
+    setIsCheckingStatus(true);
+    try {
+      const booking = await iotService.getBookingRequest(user.id);
+      setBookingStatus(booking?.status || null);
+    } catch (error) {
+      console.error('Error checking booking status:', error);
+      setBookingStatus(null);
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  // Load readings
   const loadData = async () => {
-    if (!isInstalled) return;
-    
+    if (!user?.id || bookingStatus !== 'active') return;
+
     setIsLoading(true);
     try {
-      const [readingsData, alertsData] = await Promise.all([
-        iotService.getReadings(),
-        iotService.getAlerts(),
-      ]);
-      
+      const readingsData = await iotService.getReadings(user.id);
       setReadings(readingsData);
-      setAlerts(alertsData);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error loading readings:', error);
@@ -48,27 +63,34 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
     }
   };
 
-  // Load data on mount and when installation status changes
+  // Check booking status on mount
   useEffect(() => {
-    loadData();
-  }, [isInstalled]);
+    checkBookingStatus();
+  }, [user?.id]);
 
-  // Auto-refresh every 5 minutes
+  // Load data when booking status becomes active
   useEffect(() => {
-    if (!isInstalled) return;
-    
-    const interval = setInterval(loadData, 5 * 60 * 1000);
+    if (bookingStatus === 'active') {
+      loadData();
+    }
+  }, [bookingStatus]);
+
+  // Auto-refresh every 20 seconds if active
+  useEffect(() => {
+    if (bookingStatus !== 'active') return;
+
+    const interval = setInterval(loadData, 20 * 1000); // 20 seconds
     return () => clearInterval(interval);
-  }, [isInstalled]);
+  }, [bookingStatus]);
 
   // Check online status
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
-    
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -76,11 +98,19 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
   }, []);
 
   const handleRefresh = () => {
-    loadData();
-    toast({
-      title: 'Refreshed',
-      description: 'Readings have been updated.',
-    });
+    if (bookingStatus === 'active') {
+      loadData();
+      toast({
+        title: 'Refreshed',
+        description: 'Readings have been updated.',
+      });
+    } else {
+      checkBookingStatus();
+      toast({
+        title: 'Status Checked',
+        description: 'Booking status has been refreshed.',
+      });
+    }
   };
 
   const handleSettingsSave = () => {
@@ -92,7 +122,7 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
 
   const convertTemperature = (celsius: number) => {
     if (settings.temperatureUnit === 'F') {
-      return Math.round((celsius * 9/5 + 32) * 10) / 10;
+      return Math.round((celsius * 9 / 5 + 32) * 10) / 10;
     }
     return celsius;
   };
@@ -101,37 +131,38 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
     return settings.temperatureUnit === 'F' ? '°F' : '°C';
   };
 
-  const getLightLevelColor = (level: string) => {
-    switch (level) {
-      case 'High': return 'text-green-600';
-      case 'Medium': return 'text-yellow-600';
-      case 'Low': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
-  };
 
-  const getAlertSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'high': return 'border-red-200 bg-red-50 text-red-800';
-      case 'medium': return 'border-yellow-200 bg-yellow-50 text-yellow-800';
-      case 'low': return 'border-blue-200 bg-blue-50 text-blue-800';
-      default: return 'border-gray-200 bg-gray-50 text-gray-800';
-    }
-  };
+
+
 
   // Generate simple trend data (mock)
   const generateTrendData = (values: number[]) => {
     const max = Math.max(...values);
     const min = Math.min(...values);
     const range = max - min;
-    
+
     return values.map(value => {
       const normalized = range > 0 ? (value - min) / range : 0.5;
       return Math.round(normalized * 100);
     });
   };
 
-  if (!isInstalled) {
+  // Show loading while checking status
+  if (isCheckingStatus) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+            <p className="text-muted-foreground">Checking sensor status...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show "not booked" message if status is not active
+  if (bookingStatus !== 'active') {
     return (
       <div className="max-w-2xl mx-auto">
         <Card>
@@ -139,12 +170,13 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
               <Settings className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium mb-2">Sensor isn't active yet</h3>
+            <h3 className="text-lg font-medium mb-2">Sensor isn't booked yet</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Your IoT sensor needs to be installed before you can view live readings.
+              Your IoT sensor needs to be booked and activated before you can view live readings.
             </p>
-            <Button variant="outline">
-              Back to Status
+            <Button variant="outline" onClick={handleRefresh}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Check Status
             </Button>
           </CardContent>
         </Card>
@@ -153,9 +185,9 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
   }
 
   const currentReading = readings[0];
-  const temperatureValues = readings.map(r => r.temperatureC);
-  const humidityValues = readings.map(r => r.humidityPct);
-  const moistureValues = readings.map(r => r.soilMoisturePct);
+  const temperatureValues = readings.map(r => r.temperature);
+  const humidityValues = readings.map(r => r.humidity);
+  const moistureValues = readings.map(r => r.soil_moisture);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -184,11 +216,16 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
         <div className="flex items-center gap-2">
           {lastUpdated && (
             <p className="text-sm text-muted-foreground">
-              Last updated: {lastUpdated.toLocaleTimeString()}
+              Last updated: {lastUpdated.toLocaleTimeString('en-GB', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+              })}
             </p>
           )}
-          <Button 
-            onClick={handleRefresh} 
+          <Button
+            onClick={handleRefresh}
             disabled={isLoading}
             size="sm"
           >
@@ -199,7 +236,7 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
       </div>
 
       {/* Reading Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Soil Moisture */}
         <Card>
           <CardContent className="p-6">
@@ -208,14 +245,14 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
                 <Droplets className="h-5 w-5 text-blue-600" />
                 <span className="text-sm font-medium">Soil Moisture</span>
               </div>
-              <Badge variant="secondary">{currentReading?.soilMoisturePct || 0}%</Badge>
+              <Badge variant="secondary">{currentReading?.soil_moisture || 0}%</Badge>
             </div>
             <div className="text-3xl font-bold mb-2">
-              {currentReading?.soilMoisturePct || 0}%
+              {currentReading?.soil_moisture || 0}%
             </div>
             <div className="text-xs text-muted-foreground">
-              {currentReading?.soilMoisturePct && currentReading.soilMoisturePct < 30 ? 'Low' : 
-               currentReading?.soilMoisturePct && currentReading.soilMoisturePct > 70 ? 'High' : 'Normal'}
+              {currentReading?.soil_moisture && currentReading.soil_moisture < 30 ? 'Low' :
+                currentReading?.soil_moisture && currentReading.soil_moisture > 70 ? 'High' : 'Normal'}
             </div>
             {/* Mini trend */}
             <div className="flex items-end gap-1 mt-2 h-8">
@@ -239,15 +276,15 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
                 <span className="text-sm font-medium">Temperature</span>
               </div>
               <Badge variant="secondary">
-                {convertTemperature(currentReading?.temperatureC || 0)}{getTemperatureUnit()}
+                {convertTemperature(currentReading?.temperature || 0)}{getTemperatureUnit()}
               </Badge>
             </div>
             <div className="text-3xl font-bold mb-2">
-              {convertTemperature(currentReading?.temperatureC || 0)}{getTemperatureUnit()}
+              {convertTemperature(currentReading?.temperature || 0)}{getTemperatureUnit()}
             </div>
             <div className="text-xs text-muted-foreground">
-              {currentReading?.temperatureC && currentReading.temperatureC < 15 ? 'Cold' : 
-               currentReading?.temperatureC && currentReading.temperatureC > 35 ? 'Hot' : 'Normal'}
+              {currentReading?.temperature && currentReading.temperature < 15 ? 'Cold' :
+                currentReading?.temperature && currentReading.temperature > 35 ? 'Hot' : 'Normal'}
             </div>
             {/* Mini trend */}
             <div className="flex items-end gap-1 mt-2 h-8">
@@ -270,14 +307,14 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
                 <Eye className="h-5 w-5 text-green-600" />
                 <span className="text-sm font-medium">Humidity</span>
               </div>
-              <Badge variant="secondary">{currentReading?.humidityPct || 0}%</Badge>
+              <Badge variant="secondary">{currentReading?.humidity || 0}%</Badge>
             </div>
             <div className="text-3xl font-bold mb-2">
-              {currentReading?.humidityPct || 0}%
+              {currentReading?.humidity || 0}%
             </div>
             <div className="text-xs text-muted-foreground">
-              {currentReading?.humidityPct && currentReading.humidityPct < 40 ? 'Dry' : 
-               currentReading?.humidityPct && currentReading.humidityPct > 80 ? 'Humid' : 'Normal'}
+              {currentReading?.humidity && currentReading.humidity < 40 ? 'Dry' :
+                currentReading?.humidity && currentReading.humidity > 80 ? 'Humid' : 'Normal'}
             </div>
             {/* Mini trend */}
             <div className="flex items-end gap-1 mt-2 h-8">
@@ -292,69 +329,10 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
           </CardContent>
         </Card>
 
-        {/* Light Level */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Sun className="h-5 w-5 text-yellow-600" />
-                <span className="text-sm font-medium">Light Level</span>
-              </div>
-              <Badge variant="secondary" className={getLightLevelColor(currentReading?.lightLevel || 'Low')}>
-                {currentReading?.lightLevel || 'Low'}
-              </Badge>
-            </div>
-            <div className="text-3xl font-bold mb-2">
-              {currentReading?.lightLevel || 'Low'}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {currentReading?.lightLevel === 'High' ? 'Bright' : 
-               currentReading?.lightLevel === 'Medium' ? 'Moderate' : 'Low'}
-            </div>
-            {/* Mini trend */}
-            <div className="flex items-end gap-1 mt-2 h-8">
-              {readings.slice(-12).map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-yellow-200 rounded-sm flex-1"
-                  style={{ height: '60%' }}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+
       </div>
 
-      {/* Alerts */}
-      {alerts.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-600" />
-              Farm Alerts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {alerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  className={`p-3 rounded-lg border ${getAlertSeverityColor(alert.severity)}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <p className="text-sm font-medium">{alert.message}</p>
-                    <Button variant="ghost" size="sm" className="text-xs">
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Settings */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -437,30 +415,34 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
                   <th className="text-left p-2">Temperature</th>
                   <th className="text-left p-2">Humidity</th>
                   <th className="text-left p-2">Moisture</th>
-                  <th className="text-left p-2">Light</th>
                 </tr>
               </thead>
               <tbody>
-                {readings.slice(0, 12).map((reading, index) => (
-                  <tr key={index} className="border-b">
-                    <td className="p-2">
-                      {new Date(reading.timestamp).toLocaleTimeString('en-IN', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </td>
-                    <td className="p-2">
-                      {convertTemperature(reading.temperatureC)}{getTemperatureUnit()}
-                    </td>
-                    <td className="p-2">{reading.humidityPct}%</td>
-                    <td className="p-2">{reading.soilMoisturePct}%</td>
-                    <td className="p-2">
-                      <Badge variant="outline" className={getLightLevelColor(reading.lightLevel)}>
-                        {reading.lightLevel}
-                      </Badge>
+                {readings.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                      No sensor data available. Waiting for ThingSpeak updates...
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  readings.slice(0, 12).map((reading, index) => (
+                    <tr key={index} className="border-b">
+                      <td className="p-2">
+                        {new Date(reading.timestamp).toLocaleTimeString('en-GB', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: false
+                        })}
+                      </td>
+                      <td className="p-2">
+                        {convertTemperature(reading.temperature)}{getTemperatureUnit()}
+                      </td>
+                      <td className="p-2">{reading.humidity}%</td>
+                      <td className="p-2">{reading.soil_moisture}%</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
