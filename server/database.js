@@ -639,18 +639,20 @@ const dbHelpers = {
   // Get profiles with optional search filter (for vendor farmer search)
   getProfiles: (filter = {}) => {
     return new Promise((resolve, reject) => {
-      let query = `SELECT id, full_name, crops_grown, available_quantity, location, expected_price 
-                   FROM profiles WHERE 1=1`;
+      let query = `SELECT p.id, p.full_name, p.crops_grown, p.available_quantity, p.location, p.expected_price 
+                   FROM profiles p
+                   INNER JOIN users u ON p.id = u.id
+                   WHERE u.role = 'farmer'`;
       const params = [];
 
       // Search filter (case-insensitive substring match on name and location)
       if (filter.q) {
-        query += ` AND (LOWER(full_name) LIKE ? OR LOWER(location) LIKE ?)`;
+        query += ` AND (LOWER(p.full_name) LIKE ? OR LOWER(p.location) LIKE ?)`;
         const searchTerm = `%${filter.q.toLowerCase()}%`;
         params.push(searchTerm, searchTerm);
       }
 
-      query += ` ORDER BY id DESC`;
+      query += ` ORDER BY p.id DESC`;
 
       db.all(query, params, (err, rows) => {
         if (err) {

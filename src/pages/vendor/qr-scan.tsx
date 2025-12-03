@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -32,11 +32,13 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import jsQR from 'jsqr';
 
 export default function VendorQRScan() {
     const navigate = useNavigate();
     const { logout } = useAuth();
     const { toast } = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [theme, setTheme] = useState<'light' | 'dark'>('light');
     const [language, setLanguage] = useState<'English' | 'Hindi' | 'Punjabi'>('English');
@@ -79,6 +81,84 @@ export default function VendorQRScan() {
             });
         } finally {
             setScanning(false);
+        }
+    };
+
+    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setScanning(true);
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                // Create canvas to process image
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                if (!ctx) {
+                    toast({
+                        title: "Error",
+                        description: "Could not process image",
+                        variant: "destructive",
+                    });
+                    setScanning(false);
+                    return;
+                }
+
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                // Get image data
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                // Decode QR code
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                if (code) {
+                    // QR code found
+                    handleQRTextSubmit(code.data);
+                } else {
+                    // No QR code found
+                    setQrResult('QR not present');
+                    toast({
+                        title: "No QR Code",
+                        description: "QR not present in the uploaded image",
+                        variant: "destructive",
+                    });
+                    setScanning(false);
+                }
+            };
+
+            img.onerror = () => {
+                toast({
+                    title: "Error",
+                    description: "Could not load image",
+                    variant: "destructive",
+                });
+                setScanning(false);
+            };
+
+            img.src = e.target?.result as string;
+        };
+
+        reader.onerror = () => {
+            toast({
+                title: "Error",
+                description: "Could not read file",
+                variant: "destructive",
+            });
+            setScanning(false);
+        };
+
+        reader.readAsDataURL(file);
+
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
         }
     };
 
@@ -265,8 +345,16 @@ export default function VendorQRScan() {
                                     <span>Scan QR</span>
                                 </button>
 
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    className="hidden"
+                                />
+
                                 <button
-                                    onClick={handleManualInput}
+                                    onClick={() => fileInputRef.current?.click()}
                                     disabled={scanning}
                                     className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-green-600 text-green-600 hover:bg-green-50 font-medium rounded-lg transition-colors min-w-[160px] disabled:opacity-50"
                                 >
