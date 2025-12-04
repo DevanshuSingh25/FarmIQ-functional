@@ -29,6 +29,10 @@ export interface RegisterData {
   phone: string;
   password: string;
   language_pref?: string;
+  location?: string;
+  crops_grown?: string;
+  available_quantity?: string;
+  expected_price?: string;
 }
 
 export interface ProfileData {

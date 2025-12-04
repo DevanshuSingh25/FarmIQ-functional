@@ -42,6 +42,31 @@ const initDatabase = () => {
         console.log('Index created successfully');
         resolve();
       });
+      // Create profiles table (updated schema with new fields)
+      db.run(`
+        CREATE TABLE IF NOT EXISTS profiles (
+          id INTEGER PRIMARY KEY,
+          full_name TEXT,
+          email TEXT,
+          phone_number TEXT,
+          language_pref TEXT DEFAULT 'en',
+          location TEXT,
+          crops_grown TEXT,
+          available_quantity TEXT,
+          expected_price TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (id) REFERENCES users (id)
+        )
+      `, (err) => {
+        if (err) {
+          console.error('Error creating profiles table:', err);
+          reject(err);
+          return;
+        }
+        console.log('Profiles table created successfully');
+        resolve();
+      });
     });
   });
 };
@@ -127,11 +152,21 @@ const dbHelpers = {
   // Insert a new profile (no username, aadhar, village, district, state)
   insertProfile: (profileData) => {
     return new Promise((resolve, reject) => {
-      const { id, full_name, email, phone_number, language_pref } = profileData;
+      const { id, full_name, email, phone_number, language_pref, location, crops_grown, available_quantity, expected_price } = profileData;
       db.run(
-        `INSERT INTO profiles (id, full_name, email, phone_number, language_pref) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [id, full_name || '', email || '', phone_number || '', language_pref || 'en'],
+        `INSERT INTO profiles (id, full_name, email, phone_number, language_pref, location, crops_grown, available_quantity, expected_price) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          full_name || '',
+          email || '',
+          phone_number || '',
+          language_pref || 'en',
+          location || '',
+          crops_grown || '',
+          available_quantity || '',
+          expected_price || ''
+        ],
         function (err) {
           if (err) {
             reject(err);

@@ -104,7 +104,7 @@ app.get('/api/test', (req, res) => {
 // Register
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { role, full_name, email, phone, password, language_pref } = req.body;
+    const { role, full_name, email, phone, password, language_pref, location, crops_grown, available_quantity, expected_price } = req.body;
 
     const result = await authHelpers.register({
       role: role || 'farmer',
@@ -112,7 +112,11 @@ app.post('/api/auth/register', async (req, res) => {
       email,
       phone,
       password,
-      language_pref
+      language_pref,
+      location,
+      crops_grown,
+      available_quantity,
+      expected_price
     });
 
     res.status(201).json({ ok: true, userId: result.userId });

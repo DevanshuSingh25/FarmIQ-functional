@@ -60,7 +60,11 @@ const authHelpers = {
         full_name: full_name || '',
         email,
         phone_number: phone || '',
-        language_pref: language_pref || 'en'
+        language_pref: language_pref || 'en',
+        location: userData.location,
+        crops_grown: userData.crops_grown,
+        available_quantity: userData.available_quantity,
+        expected_price: userData.expected_price
       });
 
       return { success: true, userId: result.id };

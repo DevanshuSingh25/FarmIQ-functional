@@ -19,6 +19,10 @@ const registerSchema = z.object({
   phone: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
   email: z.string().email('Invalid email format'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  location: z.string().optional(),
+  crops_grown: z.string().optional(),
+  available_quantity: z.string().optional(),
+  expected_price: z.string().optional(),
 });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
@@ -59,6 +63,11 @@ export default function Register() {
         email: data.email,
         phone: data.phone,
         password: data.password,
+        // Add optional fields based on role
+        location: (selectedRole === 'farmer' || selectedRole === 'vendor') ? data.location : undefined,
+        crops_grown: selectedRole === 'farmer' ? data.crops_grown : undefined,
+        available_quantity: selectedRole === 'farmer' ? data.available_quantity : undefined,
+        expected_price: selectedRole === 'farmer' ? data.expected_price : undefined,
       };
 
       await authService.register(registerData);
@@ -234,6 +243,51 @@ export default function Register() {
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
             </div>
+
+            {/* Conditional Fields based on Role */}
+            {(selectedRole === 'farmer' || selectedRole === 'vendor') && (
+              <div className="space-y-2">
+                <Label htmlFor="location">Location</Label>
+                <Input
+                  id="location"
+                  type="text"
+                  placeholder="Village, District"
+                  {...register('location')}
+                />
+              </div>
+            )}
+
+            {selectedRole === 'farmer' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="crops_grown">Crops Grown</Label>
+                  <Input
+                    id="crops_grown"
+                    type="text"
+                    placeholder="Wheat, Rice, etc."
+                    {...register('crops_grown')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="available_quantity">Available Quantity</Label>
+                  <Input
+                    id="available_quantity"
+                    type="text"
+                    placeholder="e.g., 100 kg"
+                    {...register('available_quantity')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="expected_price">Expected Price</Label>
+                  <Input
+                    id="expected_price"
+                    type="text"
+                    placeholder="e.g., 50/kg"
+                    {...register('expected_price')}
+                  />
+                </div>
+              </>
+            )}
 
             <Button
               type="submit"
