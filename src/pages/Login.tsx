@@ -8,10 +8,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Globe, Moon, Sun } from 'lucide-react';
 import { authService, LoginCredentials } from '@/services/authService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { setLanguage as setGoogleLanguage } from '@/lib/googleTranslate';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Validation schema
 const loginSchema = z.object({
@@ -31,6 +38,15 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [language, setLanguage] = useState<'English' | 'Hindi' | 'Punjabi'>('English');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  const languages = ['English', 'Hindi', 'Punjabi'] as const;
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark');
+  };
 
   const {
     register,
@@ -96,6 +112,36 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50/50 to-white flex items-center justify-center p-4">
+      {/* Language and Theme switchers - top right */}
+      <div className="fixed top-4 right-4 flex items-center gap-2 z-10">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-9 w-9">
+              <Globe className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {languages.map((lang) => (
+              <DropdownMenuItem
+                key={lang}
+                onClick={() => {
+                  setLanguage(lang);
+                  setGoogleLanguage(lang);
+                }}
+                className="cursor-pointer"
+              >
+                {lang}
+                {language === lang && <span className="ml-2 text-primary">✓</span>}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Button variant="outline" size="icon" className="h-9 w-9" onClick={toggleTheme}>
+          {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+        </Button>
+      </div>
+
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-3xl font-bold">Login</CardTitle>
@@ -111,8 +157,8 @@ export default function Login() {
                 type="button"
                 onClick={() => handleRoleChange('farmer')}
                 className={`py-2 px-4 rounded-md text-sm font-medium transition-colors ${selectedRole === 'farmer'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
                   }`}
               >
                 Farmer
@@ -121,8 +167,8 @@ export default function Login() {
                 type="button"
                 onClick={() => handleRoleChange('vendor')}
                 className={`py-2 px-4 rounded-md text-sm font-medium transition-colors ${selectedRole === 'vendor'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
                   }`}
               >
                 Vendor
@@ -131,8 +177,8 @@ export default function Login() {
                 type="button"
                 onClick={() => handleRoleChange('admin')}
                 className={`py-2 px-4 rounded-md text-sm font-medium transition-colors ${selectedRole === 'admin'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
                   }`}
               >
                 Admin

@@ -35,21 +35,8 @@ export const PricesFilters = ({ filters, onFiltersChange, loading }: PricesFilte
   const [localFilters, setLocalFilters] = useState<MarketPriceFilters>(filters);
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([]);
 
-  // Load saved filters from localStorage on mount
-  useEffect(() => {
-    const savedFilters = localStorage.getItem('farmiq-market-filters');
-    if (savedFilters) {
-      try {
-        const parsed = JSON.parse(savedFilters);
-        setLocalFilters(parsed);
-        if (parsed.state) {
-          setAvailableDistricts(DISTRICTS[parsed.state as keyof typeof DISTRICTS] || []);
-        }
-      } catch (err) {
-        console.error("Failed to parse saved filters:", err);
-      }
-    }
-  }, []);
+  // Don't load saved filters on mount - always start fresh with "all"
+  // Filters only save after user clicks Search
 
   // Update available districts when state changes
   useEffect(() => {

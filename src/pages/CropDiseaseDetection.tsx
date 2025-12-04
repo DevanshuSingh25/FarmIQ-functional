@@ -8,11 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SectionSpeaker } from "@/components/ui/section-speaker";
 import { FarmIQNavbar } from "@/components/farmiq/FarmIQNavbar";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Upload, 
-  Camera, 
-  Loader2, 
-  CheckCircle, 
+import {
+  Upload,
+  Camera,
+  Loader2,
+  CheckCircle,
   Clock,
   Eye,
   Trash2
@@ -36,7 +36,7 @@ const CropDiseaseDetection = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [language, setLanguage] = useState<'English' | 'Hindi' | 'Punjabi'>('English');
 
@@ -45,7 +45,7 @@ const CropDiseaseDetection = () => {
     document.documentElement.classList.toggle('dark');
   };
   const [activeTab, setActiveTab] = useState("detect");
-  
+
   // Form state
   const [selectedCrop, setSelectedCrop] = useState("");
   const [note, setNote] = useState("");
@@ -54,31 +54,9 @@ const CropDiseaseDetection = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentResult, setCurrentResult] = useState<Detection | null>(null);
 
-  // History state
-  const [detectionHistory, setDetectionHistory] = useState<Detection[]>([
-    {
-      id: "D001",
-      crop: "Tomato",
-      image: "/placeholder.svg",
-      note: "Yellowing leaves with brown spots",
-      result: "Late Blight",
-      cause: "Fungal infection caused by Phytophthora infestans, typically occurs in humid conditions",
-      remedies: "Remove affected leaves immediately. Apply copper-based fungicide. Improve air circulation. Avoid overhead watering.",
-      date: "2025-09-20"
-    },
-    {
-      id: "D002", 
-      crop: "Wheat",
-      image: "/placeholder.svg",
-      note: "Orange spots on leaves",
-      result: "Rust Disease",
-      cause: "Fungal disease that thrives in cool, moist conditions",
-      remedies: "Apply triazole fungicides. Plant rust-resistant varieties next season. Remove crop residue.",
-      date: "2025-09-18"
-    }
-  ]);
+  // History removed as per user request
 
-  const crops = ["Wheat", "Rice", "Maize", "Potato", "Tomato", "Cotton"];
+  const crops = ["Apple", "Blueberry", "Cherry", "Corn", "Grape", "Orange", "Peach", "Pepper", "Potato", "Raspberry", "Soybean", "Squash", "Strawberry", "Tomato"];
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -120,6 +98,18 @@ const CropDiseaseDetection = () => {
   };
 
 
+  // Clean disease name - remove crop prefix and format
+  const cleanDiseaseName = (name: string): string => {
+    // Remove crop name prefix (e.g., "Apple___Apple_scab" -> "Apple scab")
+    const parts = name.split('___');
+    if (parts.length > 1) {
+      // Take the second part, replace underscores with spaces
+      return parts[1].replace(/_/g, ' ');
+    }
+    // If no prefix, just replace underscores
+    return name.replace(/_/g, ' ');
+  };
+
   const handleAnalyze = async () => {
     if (!selectedImage || !selectedCrop) {
       toast({
@@ -136,45 +126,33 @@ const CropDiseaseDetection = () => {
       console.log("🚀 [CropDiseaseDetection] Calling REAL inference API...");
       const response = await callInferenceApi(selectedImage);
       const { class_name } = response;
-      
-      // Filter out corn responses
-      if (class_name.includes("Corn") || class_name.includes("corn")) {
-        console.log("⚠️ [CropDiseaseDetection] Corn response filtered out:", class_name);
-        toast({
-          title: "Prediction filtered",
-          description: "Corn-related predictions are not displayed. Please try with a different crop image.",
-          variant: "destructive"
-        });
-        setIsAnalyzing(false);
-        return;
-      }
-      
+
+      // Corn is now supported - removed filter
+
       // Log the response to verify it's real
       console.log("✅ [CropDiseaseDetection] Received REAL prediction:", class_name);
       console.log("   ⚠️ This is from the REAL Keras model - NOT MOCK!");
-      
+
       // Use existing mapping to get friendly title/cause/treatment
       const info = getDiseaseInfo(class_name);
-      
+      const cleanedDiseaseName = cleanDiseaseName(class_name);
+
       console.log(`🎯 [CropDiseaseDetection] Final result: ${info.title}`);
-      
+
       // Create result object (no confidence)
       const result: Detection = {
         id: `D${Date.now()}`,
         crop: selectedCrop,
         image: imagePreview || "",
         note,
-        result: info.title,
+        result: cleanedDiseaseName,
         cause: info.cause,
         remedies: info.treatment,
         date: new Date().toISOString().split('T')[0]
       };
-      
+
       setCurrentResult(result);
-      
-      // Add to history
-      setDetectionHistory(prev => [result, ...prev]);
-      
+
       toast({
         title: "Analysis complete",
         description: `Disease detected: ${info.title}`,
@@ -182,7 +160,7 @@ const CropDiseaseDetection = () => {
     } catch (error) {
       console.error("Prediction error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      
+
       // Check if it's a network/CORS error
       if (errorMessage.includes("fetch") || errorMessage.includes("Failed to fetch") || errorMessage.includes("CORS")) {
         toast({
@@ -193,8 +171,8 @@ const CropDiseaseDetection = () => {
       } else {
         toast({
           title: "Analysis failed",
-          description: errorMessage.includes("Prediction failed") 
-            ? errorMessage 
+          description: errorMessage.includes("Prediction failed")
+            ? errorMessage
             : "Unable to process image. Please try again or contact support.",
           variant: "destructive"
         });
@@ -216,28 +194,22 @@ const CropDiseaseDetection = () => {
     }
   };
 
-  const deleteHistoryItem = (id: string) => {
-    setDetectionHistory(prev => prev.filter(item => item.id !== id));
-    toast({
-      title: "Detection deleted",
-      description: "History item removed successfully",
-    });
-  };
+  // History functions removed
 
 
   return (
     <div className="min-h-screen bg-background">
-      <FarmIQNavbar 
+      <FarmIQNavbar
         theme={theme}
         language={language}
         onThemeToggle={toggleTheme}
         onLanguageChange={setLanguage}
       />
-      
+
       <div className="container mx-auto max-w-6xl p-4 pt-24">
         <div className="flex items-center gap-4 mb-8 group relative">
           <div className="absolute top-0 right-0 z-10">
-            <SectionSpeaker 
+            <SectionSpeaker
               getText={() => "Crop Disease Detection. Upload images of your crops to identify diseases using AI-powered analysis. Get instant diagnosis, treatment recommendations, and expert advice to protect your harvest."}
               sectionId="disease-detection-header"
               ariaLabel="Read crop disease detection information"
@@ -248,14 +220,13 @@ const CropDiseaseDetection = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-1">
             <TabsTrigger value="detect">Upload & Detect</TabsTrigger>
-            <TabsTrigger value="history">History ({detectionHistory.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="detect" className="space-y-6 group relative">
             <div className="absolute top-2 right-2 z-10">
-              <SectionSpeaker 
+              <SectionSpeaker
                 getText={() => "Upload and Detect tab. Select your crop type, upload an image of affected plants, add optional notes, and click analyze to get AI-powered disease identification and treatment recommendations."}
                 sectionId="detect-tab-content"
                 ariaLabel="Read disease detection instructions"
@@ -279,17 +250,17 @@ const CropDiseaseDetection = () => {
                     onChange={handleImageUpload}
                     className="hidden"
                   />
-                  
+
                   {imagePreview ? (
                     <div className="relative">
-                      <img 
-                        src={imagePreview} 
-                        alt="Plant preview" 
+                      <img
+                        src={imagePreview}
+                        alt="Plant preview"
                         className="w-full h-64 object-cover rounded-lg border"
                       />
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
+                      <Button
+                        variant="destructive"
+                        size="sm"
                         className="absolute top-2 right-2"
                         onClick={() => {
                           setSelectedImage(null);
@@ -304,15 +275,15 @@ const CropDiseaseDetection = () => {
                     <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
                       <div className="flex flex-col items-center gap-4">
                         <div className="flex gap-4">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             onClick={() => fileInputRef.current?.click()}
                           >
                             <Upload className="h-4 w-4 mr-2" />
                             Upload Image
                           </Button>
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             onClick={handleCameraCapture}
                           >
                             <Camera className="h-4 w-4 mr-2" />
@@ -358,8 +329,8 @@ const CropDiseaseDetection = () => {
                       </p>
                     </div>
 
-                    <Button 
-                      onClick={handleAnalyze} 
+                    <Button
+                      onClick={handleAnalyze}
                       disabled={!selectedImage || !selectedCrop || isAnalyzing}
                       className="w-full"
                       size="lg"
@@ -407,14 +378,8 @@ const CropDiseaseDetection = () => {
                       </div>
 
                       <div className="flex gap-2 pt-4">
-                        <Button variant="outline" onClick={resetForm} className="flex-1">
+                        <Button variant="outline" onClick={resetForm} className="w-full">
                           Analyze Another
-                        </Button>
-                        <Button 
-                          onClick={() => setActiveTab("history")} 
-                          className="flex-1"
-                        >
-                          View History
                         </Button>
                       </div>
                     </CardContent>
@@ -434,72 +399,7 @@ const CropDiseaseDetection = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="history" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Detection History</CardTitle>
-                <CardDescription>
-                  View all your previous disease detection results
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {detectionHistory.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="font-medium mb-2">No Detection History</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Your disease detection results will appear here
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {detectionHistory.map((detection) => (
-                      <Card key={detection.id} className="relative">
-                        <CardContent className="p-4">
-                          <div className="flex gap-4">
-                            <img 
-                              src={detection.image} 
-                              alt="Plant" 
-                              className="w-20 h-20 object-cover rounded-lg border"
-                            />
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <h4 className="font-medium">{detection.result}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {detection.crop} • {detection.date}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => deleteHistoryItem(detection.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                              
-                              {detection.note && (
-                                <p className="text-sm text-muted-foreground">
-                                  Note: {detection.note}
-                                </p>
-                              )}
-                              
-                              <p className="text-sm text-muted-foreground">
-                                {detection.remedies}
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {/* History tab removed as per user request */}
         </Tabs>
       </div>
     </div>

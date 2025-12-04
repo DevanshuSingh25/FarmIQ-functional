@@ -200,68 +200,74 @@ SOIL_CLASS_NAMES = [
 SOIL_RECOMMENDATIONS = {
     "Black Soil": {
         "characteristics": "Clayey, moisture-retentive, rich in lime, iron, magnesia; good for deep-rooted crops.",
-        "best_crops": [
-            "Cotton",
-            "Millets (sorghum/jowar, bajra)",
-            "Pulses (tur, urad, moong)",
-            "Oilseeds (sunflower, soybean, castor)",
-            "Cereals (wheat, maize)",
-            "Vegetables (onion, tomato)",
-            "Fruits (citrus, grapes, pomegranate)"
-        ]
+        "best_crops": ["Cotton", "Maize", "Wheat", "Sunflower", "Moong/Chickpea"],
+        "fertilizer": [
+            "Apply 1 bag DAP per acre before sowing.",
+            "Use 1–1.5 bags Urea per acre in 2 split doses during crop growth.",
+            "Add 2 tractor-trolleys gobar compost to soften soil."
+        ],
+        "tips": [
+            "Black soil cracks; maintain steady moisture.",
+            "Use mulching in cotton to reduce evaporation.",
+            "Avoid over-watering with tube-well irrigation."
+        ],
+        "irrigation": "Light, frequent irrigation for cotton/maize; stage-wise irrigation for wheat."
     },
     "Cinder Soil": {
         "characteristics": "Soil derived from volcanic ash/lava, porous, well-drained, rich in minerals but sometimes low in organic matter",
-        "best_crops": [
-            "Pineapple",
-            "Coffee",
-            "Cocoa",
-            "Grapes",
-            "Citrus fruits",
-            "Banana",
-            "Vegetables (tomato, pepper, eggplant)",
-            "Flower crops (lavender, marigold)"
-        ]
+        "best_crops": ["Kinnow", "Grapes", "Cotton", "Sugarcane", "Vegetables"],
+        "fertilizer": [
+            "Apply 1 bag DAP per acre before sowing.",
+            "Use 2–3 bags Urea in split doses.",
+            "Apply mulch or wheat straw to conserve moisture."
+        ],
+        "tips": [
+            "Soil is porous; keep soil covered.",
+            "Drip irrigation recommended for kinnow and grapes."
+        ],
+        "irrigation": "Frequent light irrigation with mulching."
     },
     "Laterite Soil": {
         "characteristics": "Red/reddish-brown, iron and aluminum rich, acidic pH, low fertility",
-        "best_crops": [
-            "Cashew",
-            "Tea",
-            "Coffee",
-            "Rubber",
-            "Coconut",
-            "Tapioca",
-            "Areca nut",
-            "Pineapple",
-            "Millet"
-        ]
+        "best_crops": ["Maize", "Sugarcane", "Mustard", "Groundnut", "Vegetables"],
+        "fertilizer": [
+            "Apply 1 bag DAP per acre before sowing.",
+            "Use 1 bag MOP for sugarcane/vegetables.",
+            "Add compost or green manure (sunhemp/dhaincha)."
+        ],
+        "tips": [
+            "Foothill regions—risk of erosion; use contour farming.",
+            "Add crop residues to improve soil body."
+        ],
+        "irrigation": "Regular irrigation; avoid runoff."
     },
     "Peat Soil": {
         "characteristics": "Organic-rich, dark brown/black, acidic, high water retention, low nutrient availability",
-        "best_crops": [
-            "Blueberries",
-            "Cranberries",
-            "Lettuce",
-            "Celery",
-            "Onions",
-            "Strawberries",
-            "Cabbage",
-            "Root vegetables (carrots, beets)"
-        ]
+        "best_crops": ["Rice", "Potato", "Berseem", "Oat", "Vegetables"],
+        "fertilizer": [
+            "Apply 1 bag DAP per acre before sowing.",
+            "Add cow dung compost.",
+            "Mix sand to improve drainage."
+        ],
+        "tips": [
+            "Peat soil stays wet; avoid heavy irrigation.",
+            "Ideal for paddy-fodder cropping system."
+        ],
+        "irrigation": "Light irrigation only; keep moist but not water-logged except for rice."
     },
     "Yellow Soil": {
         "characteristics": "Sandy to sandy-loam texture, low organic matter, acidic pH, low fertility, well-drained",
-        "best_crops": [
-            "Millet",
-            "Groundnut",
-            "Pulses",
-            "Ragi",
-            "Fruits (mango, guava)",
-            "Vegetables (tomato, chili, brinjal)",
-            "Coconut",
-            "Cashew"
-        ]
+        "best_crops": ["Maize", "Groundnut", "Sugarcane", "Vegetables", "Pulses"],
+        "fertilizer": [
+            "Apply 1 bag DAP per acre before sowing.",
+            "Use 1.5–2 bags Urea during crop growth.",
+            "Add compost or green manure crops."
+        ],
+        "tips": [
+            "Add compost to improve soil life.",
+            "Grow dhaincha for 45 days before main crop."
+        ],
+        "irrigation": "Moderate irrigation; avoid over-watering to prevent soil washing."
     }
 }
 

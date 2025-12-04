@@ -148,10 +148,8 @@ const MarketPrices = () => {
     }
   }, [sort, pagination.page, prices.length, toast]);
 
-  // Initial load
-  useEffect(() => {
-    fetchPrices(filters);
-  }, []);
+  // Initial load - NO auto-fetch, user must click "Search" button
+  // useEffect removed so results are empty until search clicked
 
   const handleFiltersChange = (newFilters: MarketPriceFilters) => {
     setFilters(newFilters);

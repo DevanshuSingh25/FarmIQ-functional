@@ -7,6 +7,7 @@ import {
   Menu,
   Globe,
   Moon,
+  Sun,
   User,
   DollarSign,
   Box,
@@ -38,6 +39,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { setLanguage as setGoogleLanguage } from "@/lib/googleTranslate";
 
 export default function VendorDashboard() {
   const navigate = useNavigate();
@@ -53,9 +55,9 @@ export default function VendorDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] font-sans text-gray-900">
+    <div className="min-h-screen bg-[#F8F9FA] dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100">
       {/* Top Navigation Bar */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             {/* Left Side */}
@@ -66,12 +68,12 @@ export default function VendorDashboard() {
                     <Menu className="h-5 w-5 text-gray-700 group-hover:text-gray-900" />
                   </button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-[300px] sm:w-[340px] p-6 bg-[#F8F9FA]">
+                <SheetContent side="left" className="w-[300px] sm:w-[340px] p-6 bg-[#F8F9FA] dark:bg-gray-800">
                   <SheetHeader className="mb-8 flex flex-row items-center justify-between space-y-0">
-                    <SheetTitle className="text-xl font-bold text-gray-900">Navigation</SheetTitle>
+                    <SheetTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">Navigation</SheetTitle>
                   </SheetHeader>
                   <div className="space-y-3">
-                    <Link to="/vendor/dashboard" className="flex items-center justify-between px-4 py-3 bg-[#1a5d1a] text-white rounded-full shadow-sm transition-all group">
+                    <Link to="/vendor/dashboard" className="flex items-center justify-between px-4 py-3 bg-[#1a5d1a] dark:bg-green-700 text-white rounded-full shadow-sm transition-all group">
                       <div className="flex items-center gap-3">
                         <LayoutDashboard className="h-5 w-5 stroke-[2.5]" />
                         <span className="font-medium text-sm">Dashboard</span>
@@ -79,7 +81,7 @@ export default function VendorDashboard() {
                       <ChevronRight className="h-4 w-4 text-white/80" />
                     </Link>
 
-                    <Link to="/vendor/farmer-search" className="flex items-center justify-between px-4 py-3 bg-white text-gray-700 hover:bg-green-50 hover:text-green-900 rounded-full transition-all group shadow-sm border border-transparent hover:border-green-100">
+                    <Link to="/vendor/farmer-search" className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 hover:bg-green-50 dark:hover:bg-green-900 hover:text-green-900 dark:hover:text-green-100 rounded-full transition-all group shadow-sm border border-transparent hover:border-green-100 dark:hover:border-green-700">
                       <div className="flex items-center gap-3">
                         <Search className="h-5 w-5 text-gray-500 group-hover:text-green-700 transition-colors" />
                         <span className="font-medium text-sm">Farmer Search</span>
@@ -87,7 +89,7 @@ export default function VendorDashboard() {
                       <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-green-700 transition-colors" />
                     </Link>
 
-                    <Link to="/vendor/market-prices" className="flex items-center justify-between px-4 py-3 bg-white text-gray-700 hover:bg-yellow-50 hover:text-yellow-900 rounded-full transition-all group shadow-sm border border-transparent hover:border-yellow-100">
+                    <Link to="/vendor/market-prices" className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 hover:bg-yellow-50 dark:hover:bg-yellow-900 hover:text-yellow-900 dark:hover:text-yellow-100 rounded-full transition-all group shadow-sm border border-transparent hover:border-yellow-100 dark:hover:border-yellow-700">
                       <div className="flex items-center gap-3">
                         <BarChart3 className="h-5 w-5 text-gray-500 group-hover:text-yellow-700 transition-colors" />
                         <span className="font-medium text-sm">Market Price</span>
@@ -95,7 +97,7 @@ export default function VendorDashboard() {
                       <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-yellow-700 transition-colors" />
                     </Link>
 
-                    <a href="https://translationchatbotfinal.onrender.com/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-3 bg-white text-gray-700 hover:bg-purple-50 hover:text-purple-900 rounded-full transition-all group shadow-sm border border-transparent hover:border-purple-100">
+                    <a href="https://translationchatbotfinal.onrender.com/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 hover:bg-purple-50 dark:hover:bg-purple-900 hover:text-purple-900 dark:hover:text-purple-100 rounded-full transition-all group shadow-sm border border-transparent hover:border-purple-100 dark:hover:border-purple-700">
                       <div className="flex items-center gap-3">
                         <Brain className="h-5 w-5 text-gray-500 group-hover:text-purple-700 transition-colors" />
                         <span className="font-medium text-sm">EdgeAI</span>
@@ -144,7 +146,10 @@ export default function VendorDashboard() {
                   {languages.map((lang) => (
                     <DropdownMenuItem
                       key={lang}
-                      onClick={() => setLanguage(lang)}
+                      onClick={() => {
+                        setLanguage(lang);
+                        setGoogleLanguage(lang);
+                      }}
                       className="cursor-pointer hover:bg-gray-50"
                     >
                       {lang}
@@ -155,10 +160,10 @@ export default function VendorDashboard() {
               </DropdownMenu>
 
               <button
-                className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                 onClick={toggleTheme}
               >
-                <Moon className="h-5 w-5" />
+                {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
               </button>
 
               <DropdownMenu>
@@ -167,7 +172,7 @@ export default function VendorDashboard() {
                     <User className="h-5 w-5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                   <DropdownMenuItem
                     className="cursor-pointer"
                     onClick={() => navigate('/profile')}
@@ -203,17 +208,17 @@ export default function VendorDashboard() {
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard Overview</h1>
         </div>
 
         {/* Statistic Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Total Purchases */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <p className="text-gray-500 text-sm font-medium mb-1">Total Purchases</p>
-                <h3 className="text-2xl font-bold text-gray-900">₹2,45,000</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-1">Total Purchases</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">₹2,45,000</h3>
               </div>
               <div className="p-2 bg-green-50 rounded-lg">
                 <DollarSign className="h-5 w-5 text-green-600" />
@@ -231,8 +236,8 @@ export default function VendorDashboard() {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <p className="text-gray-500 text-sm font-medium mb-1">Active Orders</p>
-                <h3 className="text-2xl font-bold text-gray-900">8</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-1">Active Orders</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">8</h3>
               </div>
               <div className="p-2 bg-blue-50 rounded-lg">
                 <Box className="h-5 w-5 text-blue-600" />
@@ -247,8 +252,8 @@ export default function VendorDashboard() {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <p className="text-gray-500 text-sm font-medium mb-1">Crops Available</p>
-                <h3 className="text-2xl font-bold text-gray-900">12</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-1">Crops Available</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">12</h3>
               </div>
               <div className="p-2 bg-green-50 rounded-lg">
                 <Sprout className="h-5 w-5 text-green-600" />
@@ -263,8 +268,8 @@ export default function VendorDashboard() {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <p className="text-gray-500 text-sm font-medium mb-1">Growth Rate</p>
-                <h3 className="text-2xl font-bold text-gray-900">+18%</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-1">Growth Rate</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">+18%</h3>
               </div>
               <div className="p-2 bg-orange-50 rounded-lg">
                 <TrendingUp className="h-5 w-5 text-orange-500" />
@@ -279,10 +284,10 @@ export default function VendorDashboard() {
         {/* Main Sections */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Recent QR Scans */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-6">Recent QR Scans</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-6">Recent QR Scans</h2>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-green-200 transition-colors cursor-pointer">
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600 hover:border-green-200 dark:hover:border-green-600 transition-colors cursor-pointer">
                 <div>
                   <h4 className="font-bold text-gray-900">Rice - Basmati</h4>
                   <p className="text-sm text-gray-500 mt-1">2.5 tons • Verified</p>

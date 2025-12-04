@@ -9,9 +9,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Globe, Moon, Sun } from 'lucide-react';
 import { authService, RegisterData } from '@/services/authService';
 import { useToast } from '@/hooks/use-toast';
+import { setLanguage as setGoogleLanguage } from '@/lib/googleTranslate';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Validation schema (no username, aadhar)
 const registerSchema = z.object({
@@ -42,6 +49,15 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [language, setLanguage] = useState<'English' | 'Hindi' | 'Punjabi'>('English');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  const languages = ['English', 'Hindi', 'Punjabi'] as const;
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark');
+  };
 
   const {
     register,
@@ -94,6 +110,36 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50/50 to-white flex items-center justify-center p-4">
+      {/* Language and Theme switchers - top right */}
+      <div className="fixed top-4 right-4 flex items-center gap-2 z-10">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-9 w-9">
+              <Globe className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {languages.map((lang) => (
+              <DropdownMenuItem
+                key={lang}
+                onClick={() => {
+                  setLanguage(lang);
+                  setGoogleLanguage(lang);
+                }}
+                className="cursor-pointer"
+              >
+                {lang}
+                {language === lang && <span className="ml-2 text-primary">✓</span>}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Button variant="outline" size="icon" className="h-9 w-9" onClick={toggleTheme}>
+          {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+        </Button>
+      </div>
+
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <div className="text-sm font-medium text-green-600 uppercase tracking-wide">

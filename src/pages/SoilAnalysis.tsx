@@ -650,6 +650,40 @@ const SoilAnalysis = () => {
                     </div>
                   )}
 
+                  {/* Fertilizer Recommendations */}
+                  {soilResult.recommendations?.fertilizer && (
+                    <div>
+                      <h4 className="font-semibold mb-2">Fertilizer Recommendations</h4>
+                      <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                        {soilResult.recommendations.fertilizer.map((item: string, idx: number) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Farming Tips */}
+                  {soilResult.recommendations?.tips && (
+                    <div>
+                      <h4 className="font-semibold mb-2">Farming Tips</h4>
+                      <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                        {soilResult.recommendations.tips.map((tip: string, idx: number) => (
+                          <li key={idx}>{tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Irrigation Guide */}
+                  {soilResult.recommendations?.irrigation && (
+                    <div>
+                      <h4 className="font-semibold mb-2">Irrigation Guide</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {soilResult.recommendations.irrigation}
+                      </p>
+                    </div>
+                  )}
+
                   <Button
                     variant="outline"
                     className="w-full"
