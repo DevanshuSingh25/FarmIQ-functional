@@ -103,6 +103,18 @@ class IoTService {
       body: JSON.stringify({ status }),
     });
   }
+
+  // Blynk LED control methods
+  async getBlynkLedStatus(): Promise<{ state: boolean; value: number; timestamp: string }> {
+    return this.makeRequest(`/blynk/led/status`);
+  }
+
+  async setBlynkLedState(state: boolean): Promise<{ success: boolean; state: boolean; value: number; timestamp: string }> {
+    return this.makeRequest(`/blynk/led/control`, {
+      method: 'POST',
+      body: JSON.stringify({ state }),
+    });
+  }
 }
 
 export const iotService = new IoTService();

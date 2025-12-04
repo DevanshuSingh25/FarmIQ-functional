@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { RefreshCw, Thermometer, Droplets, Eye, AlertTriangle, Wifi, WifiOff, Settings } from 'lucide-react';
+import { RefreshCw, Thermometer, Droplets, Eye, AlertTriangle, Wifi, WifiOff, Settings, Lightbulb } from 'lucide-react';
 import { iotService, Reading } from '@/services/iotService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +29,8 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
     dailySummary: true,
     alerts: true,
   });
+  const [motorState, setMotorState] = useState<boolean>(false);
+  const [isMotorLoading, setIsMotorLoading] = useState(false);
 
   // Check booking status from iot_reading table
   const checkBookingStatus = async () => {
@@ -67,6 +69,13 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
   useEffect(() => {
     checkBookingStatus();
   }, [user?.id]);
+
+  // Load motor state when booking status becomes active
+  useEffect(() => {
+    if (bookingStatus === 'active') {
+      loadMotorState();
+    }
+  }, [bookingStatus]);
 
   // Load data when booking status becomes active
   useEffect(() => {
@@ -125,6 +134,41 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
       return Math.round((celsius * 9 / 5 + 32) * 10) / 10;
     }
     return celsius;
+  };
+
+  // Load motor state from Blynk
+  const loadMotorState = async () => {
+    try {
+      const response = await iotService.getBlynkLedStatus();
+      setMotorState(response.state);
+      console.log('Motor state loaded:', response);
+    } catch (error) {
+      console.error('Error loading motor state:', error);
+    }
+  };
+
+  // Toggle motor state via Blynk
+  const handleMotorToggle = async (newState: boolean) => {
+    setIsMotorLoading(true);
+    try {
+      const response = await iotService.setBlynkLedState(newState);
+      setMotorState(response.state);
+      toast({
+        title: 'Motor Control',
+        description: `Motor turned ${newState ? 'ON' : 'OFF'} successfully`,
+      });
+      console.log('Motor state updated:', response);
+    } catch (error) {
+      console.error('Error updating motor state:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to control motor';
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsMotorLoading(false);
+    }
   };
 
   const getTemperatureUnit = () => {
@@ -332,70 +376,40 @@ export default function LiveReadings({ isInstalled }: LiveReadingsProps) {
 
       </div>
 
-
+      {/* Motor Control Section */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Settings
+            <Lightbulb className="h-5 w-5" />
+            Control your motor in farm
           </CardTitle>
+          <CardDescription>Control the LED/motor connected to your IoT device</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label htmlFor="temperature-unit">Temperature Unit</Label>
-                <p className="text-sm text-muted-foreground">Choose between Celsius and Fahrenheit</p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant={settings.temperatureUnit === 'C' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSettings(prev => ({ ...prev, temperatureUnit: 'C' }))}
-                >
-                  °C
-                </Button>
-                <Button
-                  variant={settings.temperatureUnit === 'F' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSettings(prev => ({ ...prev, temperatureUnit: 'F' }))}
-                >
-                  °F
-                </Button>
-              </div>
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+            <div className="space-y-1">
+              <Label htmlFor="motor-switch" className="text-base font-medium">
+                Motor Control
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                {motorState ? 'Motor is currently ON' : 'Motor is currently OFF'}
+              </p>
             </div>
-
-            <Separator />
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label htmlFor="daily-summary">Daily Summary</Label>
-                  <p className="text-sm text-muted-foreground">Receive daily farm condition reports</p>
-                </div>
-                <Switch
-                  id="daily-summary"
-                  checked={settings.dailySummary}
-                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, dailySummary: checked }))}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label htmlFor="alerts">Alerts</Label>
-                  <p className="text-sm text-muted-foreground">Get notified about important changes</p>
-                </div>
-                <Switch
-                  id="alerts"
-                  checked={settings.alerts}
-                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, alerts: checked }))}
-                />
-              </div>
+            <div className="flex items-center gap-3">
+              {isMotorLoading && (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+              )}
+              <Switch
+                id="motor-switch"
+                checked={motorState}
+                onCheckedChange={handleMotorToggle}
+                disabled={isMotorLoading}
+              />
             </div>
-
-            <Button onClick={handleSettingsSave} className="w-full">
-              Save Settings
-            </Button>
+          </div>
+          <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+            <Wifi className="h-4 w-4" />
+            <span>Connected to Blynk IoT Cloud</span>
           </div>
         </CardContent>
       </Card>

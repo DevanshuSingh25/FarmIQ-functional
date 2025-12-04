@@ -743,6 +743,121 @@ app.get('/api/iot/readings/:user_id', requireAuth, async (req, res) => {
   }
 });
 
+// ========== BLYNK IOT INTEGRATION ==========
+
+// Blynk configuration
+const BLYNK_AUTH_TOKEN = 'gHsyyhQpXdDMG9jfeg9UfnIdrMZMrRKH';
+const BLYNK_DEVICE = 'ESP32ledINTEGRATED';
+const BLYNK_BASE_URL = 'https://blynk.cloud/external/api';
+const BLYNK_DATASTREAM_PIN = 'd13'; // Digital pin 13 for LED control (matches Blynk datastream configuration)
+
+// GET /api/blynk/led/status - Get LED state from Blynk
+app.get('/api/blynk/led/status', requireAuth, async (req, res) => {
+  try {
+    console.log('🔍 Fetching LED status from Blynk...');
+
+    const blynkUrl = `${BLYNK_BASE_URL}/get?token=${BLYNK_AUTH_TOKEN}&${BLYNK_DATASTREAM_PIN}`;
+
+    const response = await axios.get(blynkUrl, {
+      timeout: 5000,
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    // Blynk returns the value directly (0 or 1)
+    const ledState = parseInt(response.data) === 1;
+
+    console.log(`✅ LED state from Blynk: ${ledState ? 'ON' : 'OFF'} (value: ${response.data})`);
+
+    res.json({
+      state: ledState,
+      value: parseInt(response.data),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error fetching LED status from Blynk:', error.message);
+
+    if (error.response) {
+      console.error('Blynk API error:', error.response.status, error.response.data);
+      return res.status(502).json({
+        message: 'Failed to fetch LED status from Blynk',
+        blynk_error: error.response.data
+      });
+    }
+
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      return res.status(504).json({
+        message: 'Timeout connecting to Blynk cloud'
+      });
+    }
+
+    res.status(500).json({
+      message: 'Internal server error while fetching LED status',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/blynk/led/control - Control LED via Blynk
+app.post('/api/blynk/led/control', requireAuth, async (req, res) => {
+  try {
+    const { state } = req.body;
+
+    // Validate state
+    if (typeof state !== 'boolean') {
+      return res.status(400).json({
+        message: 'State must be a boolean value (true/false)'
+      });
+    }
+
+    const ledValue = state ? 1 : 0;
+
+    console.log(`🔧 Setting LED to: ${state ? 'ON' : 'OFF'} (value: ${ledValue})`);
+
+    const blynkUrl = `${BLYNK_BASE_URL}/update?token=${BLYNK_AUTH_TOKEN}&${BLYNK_DATASTREAM_PIN}=${ledValue}`;
+
+    const response = await axios.get(blynkUrl, {
+      timeout: 5000,
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    console.log(`✅ LED successfully set to ${state ? 'ON' : 'OFF'}`);
+    console.log('Blynk response:', response.data);
+
+    res.json({
+      success: true,
+      state: state,
+      value: ledValue,
+      timestamp: new Date().toISOString(),
+      blynk_response: response.data
+    });
+  } catch (error) {
+    console.error('❌ Error controlling LED via Blynk:', error.message);
+
+    if (error.response) {
+      console.error('Blynk API error:', error.response.status, error.response.data);
+      return res.status(502).json({
+        message: 'Failed to control LED via Blynk',
+        blynk_error: error.response.data
+      });
+    }
+
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      return res.status(504).json({
+        message: 'Timeout connecting to Blynk cloud'
+      });
+    }
+
+    res.status(500).json({
+      message: 'Internal server error while controlling LED',
+      error: error.message
+    });
+  }
+});
+
 
 // ========== PROFILES / FARMER SEARCH ROUTES ==========
 
