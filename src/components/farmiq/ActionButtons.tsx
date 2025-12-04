@@ -2,17 +2,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SectionSpeaker } from "@/components/ui/section-speaker";
 import { useNavigate } from "react-router-dom";
-import { 
-  Beaker, 
-  Stethoscope, 
-  TrendingUp, 
+import {
+  Beaker,
+  Stethoscope,
+  TrendingUp,
   HandHeart,
   ChevronRight
 } from "lucide-react";
 
 export function ActionButtons() {
   const navigate = useNavigate();
-  
+
   const actions = [
     {
       id: 'soil',
@@ -40,7 +40,7 @@ export function ActionButtons() {
     },
     {
       id: 'ngo',
-      title: 'NGO scheme',
+      title: 'Government scheme',
       description: 'Access government schemes and support',
       icon: HandHeart,
       color: 'accent',
@@ -52,7 +52,7 @@ export function ActionButtons() {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {actions.map((action) => {
         const IconComponent = action.icon;
-        
+
         const getColorClasses = (color: string) => {
           switch (color) {
             case 'success':
@@ -96,7 +96,7 @@ export function ActionButtons() {
         const colorClasses = getColorClasses(action.color);
 
         return (
-          <Card 
+          <Card
             key={action.id}
             className={`${colorClasses.bg} ${colorClasses.border} border-2 hover:shadow-strong hover:scale-105 transition-all duration-300 cursor-pointer group overflow-hidden`}
             onClick={() => navigate(action.route)}
@@ -110,12 +110,12 @@ export function ActionButtons() {
                   alwaysVisible={true}
                 />
               </div>
-              
+
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className={`p-4 rounded-full bg-gradient-to-br ${colorClasses.gradient} shadow-medium group-hover:shadow-strong transition-all`}>
                   <IconComponent className="h-8 w-8 text-white" />
                 </div>
-                
+
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
                     {action.title}
@@ -125,8 +125,8 @@ export function ActionButtons() {
                   </p>
                 </div>
 
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   className="w-full mt-4 hover:bg-primary hover:text-primary-foreground transition-colors"
                   onClick={(e) => {
