@@ -52,7 +52,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setIsLoading(true);
       const response: SessionResponse = await authService.getSession();
-      
+
       if (response.authenticated && response.user) {
         setUser(response.user);
         // Update localStorage with fresh user data
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     checkSession();
-    
+
     // Set up periodic session check
     const interval = setInterval(() => {
       checkSession();

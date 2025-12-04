@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff, Globe, Moon, Sun } from 'lucide-react';
 import { authService, RegisterData } from '@/services/authService';
 import { useToast } from '@/hooks/use-toast';
-import { setLanguage as setGoogleLanguage } from '@/lib/googleTranslate';
+import { setLanguage as setGoogleLanguage, clearLanguagePreference } from '@/lib/googleTranslate';
 import {
   DropdownMenu,
   DropdownMenuContent,

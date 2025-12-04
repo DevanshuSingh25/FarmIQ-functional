@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ChatbotWidget } from "@/components/ChatbotWidget";
 import { setupMockTTSAPI } from "@/utils/mockTTSApi";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { LanguageProvider } from "@/i18n/LanguageContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
@@ -43,156 +44,158 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <ErrorBoundary>
-          <AuthProvider>
-            <Routes>
-              {/* Authentication Routes */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+          <LanguageProvider>
+            <AuthProvider>
+              <Routes>
+                {/* Authentication Routes */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
 
-              {/* Protected Dashboard Routes */}
-              <Route
-                path="/farmer/dashboard"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <FarmIQ />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/vendor/dashboard"
-                element={
-                  <ProtectedRoute requiredRole="vendor">
-                    <VendorDashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/vendor/qr-scan"
-                element={
-                  <ProtectedRoute requiredRole="vendor">
-                    <VendorQRScan />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/vendor/farmer-search"
-                element={
-                  <ProtectedRoute requiredRole="vendor">
-                    <VendorFarmerSearch />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/vendor/market-prices"
-                element={
-                  <ProtectedRoute requiredRole="vendor">
-                    <VendorMarketPrices />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/dashboard"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                }
-              />
+                {/* Protected Dashboard Routes */}
+                <Route
+                  path="/farmer/dashboard"
+                  element={
+                    <ProtectedRoute requiredRole="farmer">
+                      <FarmIQ />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/vendor/dashboard"
+                  element={
+                    <ProtectedRoute requiredRole="vendor">
+                      <VendorDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/vendor/qr-scan"
+                  element={
+                    <ProtectedRoute requiredRole="vendor">
+                      <VendorQRScan />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/vendor/farmer-search"
+                  element={
+                    <ProtectedRoute requiredRole="vendor">
+                      <VendorFarmerSearch />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/vendor/market-prices"
+                  element={
+                    <ProtectedRoute requiredRole="vendor">
+                      <VendorMarketPrices />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/dashboard"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  }
+                />
 
-              {/* Protected Farmer Routes */}
-              <Route
-                path="/soil-analysis"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <SoilAnalysis />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/farmer/crop-disease"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <CropDiseaseDetection />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/farmer/weather"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <Weather />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/farmer/ngo-schemes"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <NGOSchemes />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/farmer/teaching"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <Teaching />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/farmer/qr/generate"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <QRGeneration />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/farmer/iot"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <IoTSensor />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/farmer/consultancy"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <Consultancy />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/farmer/forum"
-                element={
-                  <ProtectedRoute requiredRole="farmer">
-                    <FarmerForum />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                }
-              />
+                {/* Protected Farmer Routes */}
+                <Route
+                  path="/soil-analysis"
+                  element={
+                    <ProtectedRoute requiredRole="farmer">
+                      <SoilAnalysis />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/farmer/crop-disease"
+                  element={
+                    <ProtectedRoute requiredRole="farmer">
+                      <CropDiseaseDetection />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/farmer/weather"
+                  element={
+                    <ProtectedRoute requiredRole="farmer">
+                      <Weather />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/farmer/ngo-schemes"
+                  element={
+                    <ProtectedRoute requiredRole="farmer">
+                      <NGOSchemes />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/farmer/teaching"
+                  element={
+                    <ProtectedRoute requiredRole="farmer">
+                      <Teaching />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/farmer/qr/generate"
+                  element={
+                    <ProtectedRoute requiredRole="farmer">
+                      <QRGeneration />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/farmer/iot"
+                  element={
+                    <ProtectedRoute requiredRole="farmer">
+                      <IoTSensor />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/farmer/consultancy"
+                  element={
+                    <ProtectedRoute requiredRole="farmer">
+                      <Consultancy />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/farmer/forum"
+                  element={
+                    <ProtectedRoute requiredRole="farmer">
+                      <FarmerForum />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
 
-              {/* Public Routes */}
-              <Route path="/" element={<Login />} />
-              <Route path="/old-homepage" element={<Index />} />
-              <Route path="/iot" element={<div className="container mx-auto p-6">IoT page coming soon</div>} />
-              <Route path="/market-prices" element={<MarketPrices />} />
-              <Route path="/yield-prediction" element={<YieldPrediction />} />
+                {/* Public Routes */}
+                <Route path="/" element={<Login />} />
+                <Route path="/old-homepage" element={<Index />} />
+                <Route path="/iot" element={<div className="container mx-auto p-6">IoT page coming soon</div>} />
+                <Route path="/market-prices" element={<MarketPrices />} />
+                <Route path="/yield-prediction" element={<YieldPrediction />} />
 
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            <ChatbotWidget />
-          </AuthProvider>
+                {/* Catch-all route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+              <ChatbotWidget />
+            </AuthProvider>
+          </LanguageProvider>
         </ErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>

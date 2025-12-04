@@ -62,4 +62,32 @@ export function setLanguage(label: 'English' | 'Hindi' | 'Punjabi'): void {
   window.location.reload();
 }
 
+/**
+ * Clears the Google Translate language preference cookies.
+ * This ensures the website loads in English (default) on next visit.
+ * Should be called during logout to prevent language persistence.
+ */
+export function clearLanguagePreference(): void {
+  const host = window.location.hostname;
+  const pastDate = 'Thu, 01 Jan 1970 00:00:00 GMT';
 
+  // Clear cookies from all possible domains and paths
+  document.cookie = `googtrans=; expires=${pastDate}; path=/`;
+  document.cookie = `googtrans=; expires=${pastDate}; domain=${host}; path=/`;
+  document.cookie = `googtrans=; expires=${pastDate}; domain=.${host}; path=/`;
+
+  // Also clear the alternate cookie name that Google Translate sometimes uses
+  document.cookie = `googtrans=/en/en; expires=${pastDate}; path=/`;
+  document.cookie = `googtrans=/en/en; expires=${pastDate}; domain=${host}; path=/`;
+}
+
+/**
+ * Alternative method to reset language to English.
+ * Sets the cookie to /en/en instead of deleting it.
+ * Can be used as a fallback if clearLanguagePreference doesn't work.
+ */
+export function resetToEnglish(): void {
+  const host = window.location.hostname;
+  document.cookie = `googtrans=/en/en; path=/`;
+  document.cookie = `googtrans=/en/en; domain=${host}; path=/`;
+}

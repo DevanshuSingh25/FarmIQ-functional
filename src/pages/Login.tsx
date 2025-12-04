@@ -12,7 +12,8 @@ import { Loader2, Eye, EyeOff, Globe, Moon, Sun } from 'lucide-react';
 import { authService, LoginCredentials } from '@/services/authService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { setLanguage as setGoogleLanguage } from '@/lib/googleTranslate';
+import { useTranslation } from '@/i18n/LanguageContext';
+import { Language } from '@/i18n/translations';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,14 +35,18 @@ export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login } = useAuth();
+  const { language, setLanguage, t } = useTranslation();
   const [selectedRole, setSelectedRole] = useState<UserRole>('farmer');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [language, setLanguage] = useState<'English' | 'Hindi' | 'Punjabi'>('English');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  const languages = ['English', 'Hindi', 'Punjabi'] as const;
+  const languageLabels: Record<Language, string> = {
+    en: 'English',
+    hi: 'हिन्दी',
+    pa: 'ਪੰਜਾਬੀ',
+  };
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -75,8 +80,8 @@ export default function Login() {
         login(response.user);
 
         toast({
-          title: 'Login Successful',
-          description: `Welcome back!`,  // FIXED: removed user.name
+          title: t('loginSuccess'),
+          description: t('welcomeBack'),
         });
         navigate(response.redirectUrl);
       }
@@ -121,16 +126,13 @@ export default function Login() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {languages.map((lang) => (
+            {(Object.keys(languageLabels) as Language[]).map((lang) => (
               <DropdownMenuItem
                 key={lang}
-                onClick={() => {
-                  setLanguage(lang);
-                  setGoogleLanguage(lang);
-                }}
+                onClick={() => setLanguage(lang)}
                 className="cursor-pointer"
               >
-                {lang}
+                {languageLabels[lang]}
                 {language === lang && <span className="ml-2 text-primary">✓</span>}
               </DropdownMenuItem>
             ))}
@@ -144,9 +146,9 @@ export default function Login() {
 
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold">Login</CardTitle>
+          <CardTitle className="text-3xl font-bold">{t('loginTitle')}</CardTitle>
           <CardDescription>
-            Sign in to your FarmIQ account
+            {t('loginDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -161,7 +163,7 @@ export default function Login() {
                   : 'text-gray-600 hover:text-gray-900'
                   }`}
               >
-                Farmer
+                {t('farmer')}
               </button>
               <button
                 type="button"
@@ -171,7 +173,7 @@ export default function Login() {
                   : 'text-gray-600 hover:text-gray-900'
                   }`}
               >
-                Vendor
+                {t('vendor')}
               </button>
               <button
                 type="button"
@@ -181,7 +183,7 @@ export default function Login() {
                   : 'text-gray-600 hover:text-gray-900'
                   }`}
               >
-                Admin
+                {t('admin')}
               </button>
             </div>
           </div>
@@ -196,7 +198,7 @@ export default function Login() {
           {/* Login Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('email')}</Label>
               <Input
                 id="email"
                 type="text"
@@ -210,7 +212,7 @@ export default function Login() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('password')}</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -245,7 +247,7 @@ export default function Login() {
               disabled={isLoading}
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Login
+              {t('login')}
             </Button>
           </form>
 
@@ -285,7 +287,7 @@ export default function Login() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              Continue with Google
+              {t('continueWithGoogle')}
             </Button>
 
             <Button
@@ -302,18 +304,18 @@ export default function Login() {
                   d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                 />
               </svg>
-              Continue with Phone Number
+              {t('continueWithPhone')}
             </Button>
           </div>
 
           {/* Register Link */}
           <div className="text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
+            <span className="text-muted-foreground">{t('dontHaveAccount')} </span>
             <Link
               to="/register"
               className="font-medium text-green-600 hover:text-green-700 hover:underline"
             >
-              Register
+              {t('register')}
             </Link>
           </div>
         </CardContent>
