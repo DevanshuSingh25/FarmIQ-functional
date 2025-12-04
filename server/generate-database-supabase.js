@@ -1,4 +1,12 @@
-const supabase = require('./supabase-client');
+/**
+ * Script to generate the Supabase version of database.js
+ * Run this to create the new database.js file
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+const databaseContent = `const supabase = require('./supabase-client');
 
 const initDatabase = async () => {
   console.log('✅ Supabase database ready');
@@ -152,7 +160,7 @@ const dbHelpers = {
       console.log('🔍 Filtering schemes with criteria:', { state, land, category, age });
       let query = supabase.from('ngo_schemes').select('*');
       if (state) {
-        query = query.or(`required_state.is.null,required_state.eq.ALL,required_state.eq.${state}`);
+        query = query.or(\`required_state.is.null,required_state.eq.ALL,required_state.eq.\${state}\`);
       }
       const { data: allSchemes, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
@@ -166,7 +174,7 @@ const dbHelpers = {
       if (age !== undefined && age !== null) {
         filtered = filtered.filter(s => (s.age_min === null || age >= s.age_min) && (s.age_max === null || age <= s.age_max));
       }
-      console.log(`✅ Found ${filtered.length} eligible schemes`);
+      console.log(\`✅ Found \${filtered.length} eligible schemes\`);
       return filtered;
     } catch (error) {
       throw error;
@@ -342,8 +350,8 @@ const dbHelpers = {
     try {
       let query = supabase.from('profiles').select('id, full_name, crops_grown, available_quantity, location, expected_price, users!inner(role)').eq('users.role', 'farmer');
       if (filter.q) {
-        const searchTerm = `%${filter.q}%`;
-        query = query.or(`full_name.ilike.${searchTerm},location.ilike.${searchTerm}`);
+        const searchTerm = \`%\${filter.q}%\`;
+        query = query.or(\`full_name.ilike.\${searchTerm},location.ilike.\${searchTerm}\`);
       }
       query = query.order('id', { ascending: false });
       const { data, error } = await query;
@@ -359,7 +367,7 @@ const dbHelpers = {
     const THINGSPEAK_API_KEY = 'OTIJXUV8A9RZ1VVC';
     const CHANNEL_ID = '3189406';
     try {
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${THINGSPEAK_API_KEY}&results=${limit}`;
+      const url = \`https://api.thingspeak.com/channels/\${CHANNEL_ID}/feeds.json?api_key=\${THINGSPEAK_API_KEY}&results=\${limit}\`;
       const response = await axios.get(url, { timeout: 10000 });
       if (!response.data || !response.data.feeds) {
         console.warn('No data from ThingSpeak');
@@ -372,7 +380,7 @@ const dbHelpers = {
         soil_moisture: parseFloat(feed.field3) || 0
       }));
       readings.reverse();
-      console.log(`✅ Fetched ${readings.length} readings from ThingSpeak`);
+      console.log(\`✅ Fetched \${readings.length} readings from ThingSpeak\`);
       return readings;
     } catch (error) {
       console.error('❌ Error fetching ThingSpeak data:', error.message);
@@ -384,10 +392,10 @@ const dbHelpers = {
     try {
       let query = supabase.from('experts_info').select('id, name, experience_years, specializations, rating, consultation_count, phone_number');
       if (q) {
-        query = query.or(`name.ilike.%${q}%,specializations.ilike.%${q}%`);
+        query = query.or(\`name.ilike.%\${q}%,specializations.ilike.%\${q}%\`);
       }
       if (specialization) {
-        query = query.ilike('specializations', `%${specialization}%`);
+        query = query.ilike('specializations', \`%\${specialization}%\`);
       }
       query = query.order('rating', { ascending: false }).range(offset, offset + limit - 1);
       const { data, error } = await query;
@@ -400,57 +408,19 @@ const dbHelpers = {
 
   getForumPosts: async () => {
     try {
-      // Fetch posts without join
-      const { data: posts, error: postsError } = await supabase
-        .from('forum_posts')
-        .select('id, user_id, category, community, question, extracted_keywords, status, upvotes, reply_count, created_at')
-        .order('created_at', { ascending: false });
-
+      const { data: posts, error: postsError } = await supabase.from('forum_posts').select('id, user_id, category, community, question, extracted_keywords, status, upvotes, reply_count, created_at, profiles!inner(full_name)').order('created_at', { ascending: false });
       if (postsError) throw postsError;
       if (!posts || posts.length === 0) return [];
-
-      // Fetch all profiles to join manually
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name');
-
-      if (profilesError) throw profilesError;
-
-      // Fetch all replies
-      const { data: replies, error: repliesError } = await supabase
-        .from('forum_replies')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (repliesError) {
-        console.error('ERROR fetching replies:', repliesError);
-        throw repliesError;
-      }
-
-      console.log(`DEBUG: Fetched ${replies ? replies.length : 0} replies from Supabase`);
-      if (replies && replies.length > 0) {
-        console.log('DEBUG: First reply:', JSON.stringify(replies[0]));
-      }
-
-      // Manual join: Map posts with profiles and replies
-      const postsWithReplies = posts.map(post => {
-        const profile = profiles?.find(p => p.id === post.user_id);
-        const postReplies = (replies || []).filter(r => r.post_id === post.id);
-
-        if (postReplies.length > 0) {
-          console.log(`DEBUG: Post ${post.id} has ${postReplies.length} replies`);
-        }
-
-        return {
-          ...post,
-          user_name: profile?.full_name || 'Unknown User',
-          replies: postReplies
-        };
-      });
-
+      const { data: replies, error: repliesError } = await supabase.from('forum_replies').select('*').order('created_at', { ascending: true });
+      if (repliesError) throw repliesError;
+      const postsWithReplies = posts.map(post => ({
+        ...post,
+        user_name: post.profiles.full_name,
+        profiles: undefined,
+        replies: (replies || []).filter(r => r.post_id === post.id)
+      }));
       return postsWithReplies;
     } catch (error) {
-      console.error('getForumPosts error:', error);
       throw error;
     }
   },
@@ -548,310 +518,33 @@ const dbHelpers = {
     } catch (error) {
       throw error;
     }
-  },
-
-  // ==== ADMIN HELPERS ====
-
-  getAllUsers: async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, email, role, phone, created_at')
-        .order('id', { ascending: true });
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  getAllProfiles: async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('id', { ascending: true });
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  deleteUser: async (userId) => {
-    try {
-      // Delete from profiles first (foreign key)
-      await supabase.from('profiles').delete().eq('id', userId);
-      // Delete from users
-      const { error } = await supabase.from('users').delete().eq('id', userId);
-      if (error) throw error;
-      return { changes: 1 };
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  updateUserPassword: async (userId, newPasswordHash) => {
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ password_hash: newPasswordHash })
-        .eq('id', userId);
-      if (error) throw error;
-      return { changes: 1 };
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  getAllExperts: async () => {
-    try {
-      const { data, error } = await supabase
-        .from('experts_info')
-        .select('*')
-        .order('id', { ascending: true });
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  createExpert: async (expertData) => {
-    try {
-      const { name, experience_years, specializations, rating, phone_number } = expertData;
-      const { data, error } = await supabase
-        .from('experts_info')
-        .insert([{
-          name,
-          experience_years: experience_years || 0,
-          specializations: specializations || '',
-          rating: rating || 0,
-          consultation_count: 0,
-          phone_number: phone_number || ''
-        }])
-        .select()
-        .single();
-      if (error) throw error;
-      return { id: data.id };
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  updateExpert: async (expertId, expertData) => {
-    try {
-      const { name, experience_years, specializations, rating, phone_number } = expertData;
-      const { error } = await supabase
-        .from('experts_info')
-        .update({
-          name, experience_years, specializations, rating, phone_number,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', expertId);
-      if (error) throw error;
-      return { changes: 1 };
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  deleteExpert: async (expertId) => {
-    try {
-      const { error } = await supabase
-        .from('experts_info')
-        .delete()
-        .eq('id', expertId);
-      if (error) throw error;
-      return { changes: 1 };
-    } catch (error) {
-      throw error;
-    }
-  }
-};
-
-// SQLite-compatible wrapper for backward compatibility
-// This allows server.js to use db.all(), db.get(), db.run() syntax with Supabase
-const db = {
-  all: (query, params, callback) => {
-    // Map common SQL queries to Supabase operations
-    const normalizedQuery = query.trim().toLowerCase();
-
-    (async () => {
-      try {
-        let result = [];
-
-        // Forum posts with replies
-        if (normalizedQuery.includes('from forum_posts')) {
-          result = await dbHelpers.getForumPosts();
-          if (params && params.length > 0 && normalizedQuery.includes('where category')) {
-            const category = params[0];
-            if (category && category !== 'All') {
-              result = result.filter(p => p.category === category);
-            }
-          }
-        }
-        // Forum replies
-        else if (normalizedQuery.includes('from forum_replies')) {
-          const allPosts = await dbHelpers.getForumPosts();
-
-          // Check if filtering by post_id
-          if (params && params.length > 0 && normalizedQuery.includes('where')) {
-            const postId = params[0];
-            const post = allPosts.find(p => p.id === parseInt(postId));
-            result = post ? (post.replies || []) : [];
-          } else {
-            // Return ALL replies (flatten from all posts)
-            result = allPosts.flatMap(post => post.replies || []);
-          }
-        }
-        // Users with profiles
-        else if (normalizedQuery.includes('from users u') && normalizedQuery.includes('left join profiles')) {
-          const users = await dbHelpers.getAllUsers();
-          const profiles = await dbHelpers.getAllProfiles();
-          result = users.map(user => {
-            const profile = profiles.find(p => p.id === user.id);
-            return { ...user, ...profile };
-          });
-        }
-        // Generic fallback - just return empty array
-        else {
-          console.warn(`db.all: Unhandled query pattern: ${query.substring(0, 100)}...`);
-          result = [];
-        }
-
-        callback(null, result);
-      } catch (error) {
-        console.error('db.all error:', error);
-        callback(error, null);
-      }
-    })();
-  },
-
-  get: (query, params, callback) => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    (async () => {
-      try {
-        let result = null;
-
-        // User by ID
-        if (normalizedQuery.includes('from users') && normalizedQuery.includes('where') && normalizedQuery.includes('id')) {
-          const userId = params[0];
-          result = await dbHelpers.findUserById(userId);
-          if (result && normalizedQuery.includes('left join profiles')) {
-            const profile = await dbHelpers.findProfileByUserId(userId);
-            result = { ...result, ...profile };
-          }
-        }
-        // Forum post by ID
-        else if (normalizedQuery.includes('from forum_posts') && normalizedQuery.includes('where')) {
-          const allPosts = await dbHelpers.getForumPosts();
-          const postId = params[0];
-          result = allPosts.find(p => p.id === parseInt(postId));
-        }
-        // Forum reply
-        else if (normalizedQuery.includes('from forum_replies')) {
-          const allPosts = await dbHelpers.getForumPosts();
-          const postId = params[0];
-          const post = allPosts.find(p => p.id === parseInt(postId));
-          result = post && post.replies && post.replies.length > 0 ? post.replies[0] : null;
-        }
-        // Generic fallback
-        else {
-          console.warn(`db.get: Unhandled query pattern: ${query.substring(0, 100)}...`);
-        }
-
-        callback(null, result);
-      } catch (error) {
-        console.error('db.get error:', error);
-        callback(error, null);
-      }
-    })();
-  },
-
-  run: function (query, params, callback) {
-    const normalizedQuery = query.trim().toLowerCase();
-    const self = { lastID: null, changes: 0 };
-
-    (async () => {
-      try {
-        // INSERT operations
-        if (normalizedQuery.startsWith('insert into forum_posts')) {
-          const [userId, category, community, question, keywords] = params;
-          const result = await dbHelpers.createForumPost(userId, category, question, community, keywords);
-          self.lastID = result.id;
-          self.changes = 1;
-          callback.call(self, null);
-        }
-        else if (normalizedQuery.startsWith('insert into forum_replies')) {
-          const [postId, replyText, repliedBy] = params;
-          const result = await dbHelpers.createForumReply(postId, replyText, repliedBy);
-          self.lastID = result.id;
-          self.changes = 1;
-          callback.call(self, null);
-        }
-        else if (normalizedQuery.startsWith('insert into experts_info')) {
-          const [name, experience_years, specializations, phone_number] = params;
-          const result = await dbHelpers.createExpert({ name, experience_years, specializations, phone_number, rating: 0 });
-          self.lastID = result.id;
-          self.changes = 1;
-          callback.call(self, null);
-        }
-        // UPDATE operations
-        else if (normalizedQuery.startsWith('update users') && normalizedQuery.includes('password_hash')) {
-          const [hashedPassword, userId] = params;
-          await dbHelpers.updateUserPassword(userId, hashedPassword);
-          self.changes = 1;
-          callback.call(self, null);
-        }
-        else if (normalizedQuery.startsWith('update users') && !normalizedQuery.includes('password')) {
-          // Update user info
-          const [email, role, phone, userId] = params;
-          await supabase.from('users').update({ email, role, phone }).eq('id', userId);
-          self.changes = 1;
-          callback.call(self, null);
-        }
-        else if (normalizedQuery.startsWith('update profiles')) {
-          const [full_name, phone_number, location, crops_grown, available_quantity, expected_price, userId] = params;
-          await dbHelpers.updateProfile(userId, { full_name, phone_number, location, crops_grown, available_quantity, expected_price });
-          self.changes = 1;
-          callback.call(self, null);
-        }
-        else if (normalizedQuery.startsWith('update experts_info')) {
-          const [name, experience_years, specializations, phone_number, rating, expertId] = params;
-          await dbHelpers.updateExpert(expertId, { name, experience_years, specializations, phone_number, rating });
-          self.changes = 1;
-          callback.call(self, null);
-        }
-        // DELETE operations
-        else if (normalizedQuery.startsWith('delete from users')) {
-          const userId = params[0];
-          await dbHelpers.deleteUser(userId);
-          self.changes = 1;
-          callback.call(self, null);
-        }
-        else if (normalizedQuery.startsWith('delete from experts_info')) {
-          const expertId = params[0];
-          await dbHelpers.deleteExpert(expertId);
-          self.changes = 1;
-          callback.call(self, null);
-        }
-        // Generic fallback
-        else {
-          console.warn(`db.run: Unhandled query pattern: ${query.substring(0, 100)}...`);
-          callback.call(self, new Error('Unsupported query pattern'));
-        }
-      } catch (error) {
-        console.error('db.run error:', error);
-        callback.call(self, error);
-      }
-    })();
   }
 };
 
 module.exports = {
   initDatabase,
-  dbHelpers,
-  db  // Export db for backward compatibility
+  dbHelpers
 };
+`;
+
+// Write the file
+const targetPath = path.join(__dirname, 'database.js');
+const backupPath = path.join(__dirname, 'database.js.backup');
+
+try {
+    // Backup current database.js
+    if (fs.existsSync(targetPath)) {
+        fs.copyFileSync(targetPath, backupPath);
+        console.log('✅ Backed up current database.js to database.js.backup');
+    }
+
+    // Write new database.js
+    fs.writeFileSync(targetPath, databaseContent, 'utf8');
+    console.log('✅ Created new database.js with Supabase functions');
+    console.log('📝 Total functions refactored: 51');
+    console.log('\n🎉 database.js successfully updated to use Supabase!');
+    console.log('\nRun "npm start" to test the backend server.');
+} catch (error) {
+    console.error('❌ Error creating database.js:', error.message);
+    process.exit(1);
+}
